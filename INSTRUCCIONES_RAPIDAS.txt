@@ -1,0 +1,14 @@
+ABRIR EN ANDROID STUDIO
+
+1. Descomprime NUBA_Compose_Nativo.zip
+2. Android Studio > Open > carpeta NUBA_Compose_Nativo
+3. Espera Sync Gradle
+4. Run en emulador o celular
+
+PANTALLAS LISTAS:
+- Login con roles
+- Cliente: inicio, explorar, detalle, mapa, reservar, pago, QR, reservas, tienda, carrito, perfil, reseñas
+- Proveedor: reservas, local, horarios, productos, reseñas, validar QR
+- Admin: aprobar negocios, negocios, usuarios, moderar reseñas
+
+Si Google Maps no carga, revisa local.properties y activa Maps SDK en Google Cloud.

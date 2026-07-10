@@ -1,0 +1,11 @@
+NUBA Compose Nativo - versión compatible con Gradle 8.5
+
+Esta versión baja Android Gradle Plugin a 8.3.2 para que Android Studio pueda sincronizar con Gradle 8.5 cuando no hay wrapper en el proyecto.
+
+Pasos:
+1. Descomprime este ZIP.
+2. Abre Android Studio > Open > selecciona la carpeta NUBA_Compose_Nativo_Gradle85.
+3. Espera Sync Project with Gradle Files.
+4. Ejecuta Run.
+
+Si Android Studio pregunta por actualizar Gradle o AGP, por ahora NO actualices; primero compila esta versión.

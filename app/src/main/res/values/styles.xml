@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.NUBA" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">#08101F</item>
+        <item name="android:statusBarColor">#08101F</item>
+    </style>
+</resources>
