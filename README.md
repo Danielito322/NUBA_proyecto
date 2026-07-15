@@ -1,34 +1,39 @@
-# NUBA Compose Nativo
+# NUBA - App móvil nativa con Jetpack Compose
 
-Aplicación móvil nativa en Kotlin + Jetpack Compose para una plataforma de reservas.
+NUBA es una aplicación móvil de reservas para Deportes, Belleza y Entretenimiento. Incluye cliente, proveedor y administrador.
 
 ## Avance actual
 
-- Login por roles: Cliente, Proveedor y Administrador.
-- Autenticación con huella dactilar para los tres roles.
-- Activación segura de huella con contraseña + biometría.
-- Desactivación segura de huella con contraseña.
-- Ingreso automático con huella al abrir la app, si la cuenta ya fue activada.
-- Cliente: explorar, mapa, detalle, reservar, pago, QR, tienda, carrito, reseñas y perfil.
-- Proveedor: panel de negocio, horarios, productos, reservas y validación QR.
-- Administrador: aprobaciones, usuarios, reportes y moderación.
+- Kotlin + Jetpack Compose
+- Login por roles
+- Firebase Auth conectado
+- Huella dactilar con BiometricPrompt
+- Mapa de Puno
+- Reservas, pago simulado, QR, tienda, carrito y reseñas
+- Panel proveedor
+- Panel administrador
 
-## Cuentas demo
+## Firebase
 
-- Cliente: `daniel@nuba.app` / `12345678`
-- Proveedor: `proveedor@nuba.app` / `proveedor123`
-- Administrador: `admin@nuba.app` / `admin123`
+El proyecto ya incluye `app/google-services.json` y las dependencias Firebase necesarias para autenticación.
+
+Para que el registro/login real funcione, habilita en Firebase Console:
+
+Authentication > Sign-in method > Email/Password
+
+## Biometría
+
+La huella funciona como acceso rápido después de validar la cuenta con contraseña. No reemplaza el login tradicional.
 
 ## Ejecutar
 
-1. Abrir el proyecto en Android Studio.
-2. Esperar Sync Project with Gradle Files.
-3. Ejecutar con Run.
+1. Abrir carpeta en Android Studio.
+2. Sync Project with Gradle Files.
+3. Run.
 
-## Subir cambios
+Si aparece error de SDK, crea `local.properties` con:
 
-```powershell
-git add .
-git commit -m "feat: mejora autenticacion biometrica por roles"
-git push origin main
+```properties
+sdk.dir=C\:\\Users\\DANIEL\\AppData\\Local\\Android\\Sdk
+MAPS_API_KEY=TU_CLAVE_GOOGLE_MAPS
 ```

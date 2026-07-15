@@ -20,11 +20,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.daniel.nuba.auth.BiometricAuth
 import com.daniel.nuba.data.AppState
 import com.daniel.nuba.model.AppRoute
 import com.daniel.nuba.model.Category
@@ -218,6 +221,49 @@ fun CartScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
 
 @Composable
 fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
+    val context = LocalContext.current
+    var showSecurityDialog by remember { mutableStateOf(false) }
+    var confirmPassword by remember { mutableStateOf("") }
+    var biometricEnabled by remember { mutableStateOf(BiometricAuth.isEnabled(context, appState.role)) }
+
+    if (showSecurityDialog) {
+        AlertDialog(
+            onDismissRequest = { showSecurityDialog = false; confirmPassword = "" },
+            title = { Text("Seguridad biométrica") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "La huella está vinculada a la cuenta ${appState.role.title}. Para olvidar este acceso rápido, confirma la contraseña de la cuenta.",
+                        fontSize = 13.sp
+                    )
+                    OutlinedTextField(
+                        value = confirmPassword,
+                        onValueChange = { confirmPassword = it },
+                        label = { Text("Contraseña") },
+                        leadingIcon = { Icon(Icons.Outlined.Lock, null) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (BiometricAuth.credentialIsValid(appState.role, appState.userEmail, confirmPassword)) {
+                        BiometricAuth.disableRole(context, appState.role)
+                        biometricEnabled = false
+                        appState.toast = "Acceso biométrico olvidado para ${appState.role.title}"
+                        showSecurityDialog = false
+                        confirmPassword = ""
+                    } else {
+                        appState.toast = "Contraseña incorrecta. No se modificó la seguridad."
+                    }
+                }) { Text("Confirmar") }
+            },
+            dismissButton = { TextButton(onClick = { showSecurityDialog = false; confirmPassword = "" }) { Text("Cancelar") } }
+        )
+    }
+
     MobileScaffold(appState, AppRoute.Profile, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Tu cuenta", "Perfil", "Preferencias, historial y soporte.", Icons.Outlined.Logout) { onNavigate(AppRoute.Login) } }
@@ -240,9 +286,40 @@ fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                     StatCard("Reseñas", appState.reviews.count { it.author == appState.userName }.toString(), Modifier.weight(1f))
                 }
             }
+            item { BiometricSecurityCard(biometricEnabled, appState.role.title) { showSecurityDialog = true } }
             item { MenuLink("Mis reservas", "QR, historial y próximos planes", Icons.Outlined.CalendarMonth) { onNavigate(AppRoute.Bookings) } }
             item { MenuLink("Carrito", "Productos seleccionados", Icons.Outlined.ShoppingCart) { onNavigate(AppRoute.Cart) } }
             item { MenuLink("Cerrar sesión", "Volver a elegir tipo de cuenta", Icons.Outlined.Logout) { onNavigate(AppRoute.Login) } }
+        }
+    }
+}
+
+@Composable
+private fun BiometricSecurityCard(enabled: Boolean, roleTitle: String, onManage: () -> Unit) {
+    GlassCard(radius = 22) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (enabled) NubaCyan.copy(.16f) else Color.White.copy(.07f))
+                    .border(1.dp, if (enabled) NubaCyan.copy(.45f) else Color.White.copy(.13f), RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Outlined.Fingerprint, null, tint = if (enabled) NubaCyan else NubaMuted, modifier = Modifier.size(25.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Seguridad de acceso", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
+                Text(
+                    if (enabled) "Huella activa para $roleTitle" else "Puedes vincular huella desde el próximo inicio de sesión",
+                    color = NubaMuted,
+                    fontSize = 12.sp
+                )
+            }
+            if (enabled) {
+                TextButton(onClick = onManage) { Text("Gestionar", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+            }
         }
     }
 }
