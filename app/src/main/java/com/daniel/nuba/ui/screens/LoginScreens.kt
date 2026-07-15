@@ -13,6 +13,8 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Login
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,43 +42,52 @@ import com.daniel.nuba.ui.theme.NubaCyan
 import com.daniel.nuba.ui.theme.NubaMuted
 import com.daniel.nuba.ui.theme.NubaText
 import com.daniel.nuba.ui.theme.NubaViolet
+import kotlinx.coroutines.delay
 
 @Composable
 fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit) {
     val context = LocalContext.current
     val activity = context.findFragmentActivity()
-    var email by remember { mutableStateOf(BiometricAuth.savedEmail(context)) }
-    var password by remember { mutableStateOf("12345678") }
-    var selectedRole by remember { mutableStateOf(Role.CLIENTE) }
-    var biometricEnabled by remember { mutableStateOf(BiometricAuth.isEnabled(context)) }
+    val initialRole = remember {
+        BiometricAuth.lastRole(context)?.takeIf { BiometricAuth.isEnabled(context, it) } ?: Role.CLIENTE
+    }
+
+    var selectedRole by remember { mutableStateOf(initialRole) }
+    var email by remember { mutableStateOf(BiometricAuth.savedEmail(context, initialRole)) }
+    var password by remember { mutableStateOf(BiometricAuth.defaultPassword(initialRole)) }
+    var biometricEnabled by remember { mutableStateOf(BiometricAuth.isEnabled(context, initialRole)) }
+    var autoPromptDone by remember { mutableStateOf(false) }
+    var showDisableDialog by remember { mutableStateOf(false) }
+    var disablePassword by remember { mutableStateOf("") }
     val biometricAvailable = remember { BiometricAuth.canAuthenticate(context) }
     val biometricStatus = remember { BiometricAuth.statusMessage(context) }
 
-    fun enterWithRole(role: Role) {
+    fun routeFor(role: Role): AppRoute = when (role) {
+        Role.CLIENTE -> AppRoute.Home
+        Role.PROVEEDOR -> AppRoute.Provider
+        Role.ADMIN -> AppRoute.Admin
+    }
+
+    fun enterWithRole(role: Role, fromBiometric: Boolean = false) {
         appState.role = role
-        appState.userEmail = if (role == Role.CLIENTE) email.ifBlank { BiometricAuth.savedEmail(context) } else when (role) {
-            Role.CLIENTE -> "daniel@nuba.app"
-            Role.PROVEEDOR -> "proveedor@nuba.app"
-            Role.ADMIN -> "admin@nuba.app"
-        }
-        appState.userName = when (role) {
-            Role.CLIENTE -> "Daniel Apaza"
-            Role.PROVEEDOR -> "Proveedor NUBA"
-            Role.ADMIN -> "Administrador"
-        }
-        appState.toast = "Ingreso como ${role.title}"
-        onEnter(
-            when (role) {
-                Role.CLIENTE -> AppRoute.Home
-                Role.PROVEEDOR -> AppRoute.Provider
-                Role.ADMIN -> AppRoute.Admin
-            }
-        )
+        appState.userEmail = if (fromBiometric) BiometricAuth.savedEmail(context, role) else email.ifBlank { BiometricAuth.defaultEmail(role) }
+        appState.userName = BiometricAuth.defaultName(role)
+        BiometricAuth.rememberLastRole(context, role)
+        appState.toast = if (fromBiometric) "Huella validada: ingreso como ${role.title}" else "Ingreso como ${role.title}"
+        onEnter(routeFor(role))
     }
 
-    fun authenticateForClientLogin() {
-        if (!biometricEnabled) {
-            appState.toast = "Primero activa la huella para la cuenta Cliente"
+    fun validatePasswordLogin() {
+        if (BiometricAuth.credentialIsValid(selectedRole, email, password)) {
+            enterWithRole(selectedRole)
+        } else {
+            appState.toast = "Correo o contraseña incorrectos para ${selectedRole.title}"
+        }
+    }
+
+    fun authenticateWithFingerprint(role: Role, automatic: Boolean = false) {
+        if (!BiometricAuth.isEnabled(context, role)) {
+            if (!automatic) appState.toast = "Activa primero la huella para ${role.title}"
             return
         }
         if (!biometricAvailable) {
@@ -89,26 +100,21 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit) {
         }
         BiometricAuth.authenticate(
             activity = activity,
-            title = "Acceder con huella",
-            subtitle = "Cuenta Cliente: ${BiometricAuth.savedEmail(context)}",
-            onSuccess = {
-                appState.role = Role.CLIENTE
-                appState.userEmail = BiometricAuth.savedEmail(context)
-                appState.userName = BiometricAuth.savedName(context)
-                appState.toast = "Huella validada correctamente"
-                onEnter(AppRoute.Home)
-            },
-            onError = { appState.toast = it }
+            title = "Confirmar identidad",
+            subtitle = "${role.title}: ${BiometricAuth.savedEmail(context, role)}",
+            description = "Valida tu huella para entrar rápido a NUBA. También puedes cancelar y usar contraseña.",
+            onSuccess = { enterWithRole(role, fromBiometric = true) },
+            onError = { message -> if (!automatic || message != "Cancelado") appState.toast = message }
         )
     }
 
-    fun registerClientFingerprint() {
-        if (selectedRole != Role.CLIENTE) {
-            appState.toast = "La huella solo se habilita para la cuenta Cliente"
-            return
-        }
+    fun enableFingerprintForSelectedRole() {
         if (!biometricAvailable) {
             appState.toast = biometricStatus
+            return
+        }
+        if (!BiometricAuth.credentialIsValid(selectedRole, email, password)) {
+            appState.toast = "Primero confirma la contraseña de ${selectedRole.title} para activar huella"
             return
         }
         if (activity == null) {
@@ -117,14 +123,68 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit) {
         }
         BiometricAuth.authenticate(
             activity = activity,
-            title = "Registrar huella en NUBA",
-            subtitle = "Cuenta Cliente: ${email.ifBlank { "daniel@nuba.app" }}",
+            title = "Activar huella",
+            subtitle = "${selectedRole.title}: ${email.ifBlank { BiometricAuth.defaultEmail(selectedRole) }}",
+            description = "Por seguridad, NUBA vinculará esta cuenta al bloqueo biométrico ya registrado en tu teléfono.",
             onSuccess = {
-                BiometricAuth.saveClient(context, email.ifBlank { "daniel@nuba.app" }, "Daniel Apaza")
+                BiometricAuth.saveRole(context, selectedRole, email, BiometricAuth.defaultName(selectedRole))
                 biometricEnabled = true
-                appState.toast = "Huella activada para Cliente"
+                appState.toast = "Huella activada para ${selectedRole.title}"
             },
             onError = { appState.toast = it }
+        )
+    }
+
+    fun confirmDisableFingerprint() {
+        if (BiometricAuth.credentialIsValid(selectedRole, email, disablePassword)) {
+            BiometricAuth.disableRole(context, selectedRole)
+            biometricEnabled = false
+            showDisableDialog = false
+            disablePassword = ""
+            appState.toast = "Huella desactivada para ${selectedRole.title}"
+        } else {
+            appState.toast = "Contraseña incorrecta. No se desactivó la huella."
+        }
+    }
+
+    LaunchedEffect(selectedRole) {
+        email = BiometricAuth.savedEmail(context, selectedRole)
+        password = BiometricAuth.defaultPassword(selectedRole)
+        biometricEnabled = BiometricAuth.isEnabled(context, selectedRole)
+        disablePassword = ""
+    }
+
+    LaunchedEffect(Unit) {
+        if (!autoPromptDone && biometricEnabled && biometricAvailable) {
+            autoPromptDone = true
+            delay(520)
+            authenticateWithFingerprint(selectedRole, automatic = true)
+        }
+    }
+
+    if (showDisableDialog) {
+        AlertDialog(
+            onDismissRequest = { showDisableDialog = false },
+            title = { Text("Desactivar huella") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Para evitar que alguien quite la seguridad desde tu celular desbloqueado, confirma la contraseña de ${selectedRole.title}.",
+                        fontSize = 13.sp
+                    )
+                    OutlinedTextField(
+                        value = disablePassword,
+                        onValueChange = { disablePassword = it },
+                        label = { Text("Contraseña") },
+                        leadingIcon = { Icon(Icons.Outlined.Lock, null) },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { confirmDisableFingerprint() }) { Text("Confirmar") } },
+            dismissButton = { TextButton(onClick = { showDisableDialog = false }) { Text("Cancelar") } }
         )
     }
 
@@ -140,7 +200,7 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit) {
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        listOf(Color(0x77070D18), Color(0xD30B1324), Color(0xF007101E))
+                        listOf(Color(0x66060B16), Color(0xCC08111F), Color(0xF2050A13))
                     )
                 )
         )
@@ -158,28 +218,41 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit) {
             Spacer(Modifier.height(26.dp))
 
             GlassCard(radius = 30) {
-                Text("Iniciar sesión", color = NubaText, fontSize = 28.sp, fontWeight = FontWeight.Black)
-                Text("Selecciona el tipo de cuenta. La huella es una opción rápida solo para Cliente.", color = NubaMuted, fontSize = 13.sp)
+                Text("Ingreso seguro", color = NubaText, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                Text(
+                    "Usa correo y contraseña o entra rápido con huella. Disponible para Cliente, Proveedor y Administrador.",
+                    color = NubaMuted,
+                    fontSize = 13.sp
+                )
                 Spacer(Modifier.height(18.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Role.entries.forEach { role ->
                         val active = role == selectedRole
+                        val roleBiometric = BiometricAuth.isEnabled(context, role)
                         Column(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(88.dp)
+                                .height(96.dp)
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(if (active) NubaViolet.copy(.34f) else Color.White.copy(.06f))
                                 .border(1.dp, if (active) NubaViolet else Color.White.copy(.12f), RoundedCornerShape(20.dp))
                                 .clickable { selectedRole = role }
-                                .padding(10.dp),
+                                .padding(9.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(role.icon, null, tint = if (active) Color.White else NubaMuted, modifier = Modifier.size(22.dp))
                             Spacer(Modifier.height(6.dp))
-                            Text(role.title, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                            Text(role.title, color = Color.White, fontSize = 10.5.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                if (roleBiometric) "Huella activa" else "Contraseña",
+                                color = if (roleBiometric) NubaCyan else Color.White.copy(.52f),
+                                fontSize = 8.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
                         }
                     }
                 }
@@ -188,19 +261,12 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit) {
                 LoginField("Correo", email, { email = it }, Icons.Outlined.Email, KeyboardType.Email)
                 Spacer(Modifier.height(12.dp))
                 LoginField("Contraseña", password, { password = it }, Icons.Outlined.Lock, KeyboardType.Password, true)
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(checked = true, onCheckedChange = {}, colors = CheckboxDefaults.colors(checkedColor = NubaViolet))
-                    Text("Recordar cuenta", color = Color.White.copy(.8f), fontSize = 12.sp)
-                    Spacer(Modifier.weight(1f))
-                    Text("Recuperar", color = NubaCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
+                DemoCredentialHint(selectedRole)
 
                 Spacer(Modifier.height(14.dp))
-                PrimaryButton("Acceder", icon = Icons.Outlined.Login) {
-                    enterWithRole(selectedRole)
-                }
+                PrimaryButton("Acceder con contraseña", icon = Icons.Outlined.Login) { validatePasswordLogin() }
 
                 Spacer(Modifier.height(12.dp))
                 BiometricPanel(
@@ -208,18 +274,34 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit) {
                     available = biometricAvailable,
                     status = biometricStatus,
                     selectedRole = selectedRole,
-                    onLogin = { authenticateForClientLogin() },
-                    onRegister = { registerClientFingerprint() },
-                    onDisable = {
-                        BiometricAuth.disable(context)
-                        biometricEnabled = false
-                        appState.toast = "Huella desactivada para Cliente"
-                    }
+                    onLogin = { authenticateWithFingerprint(selectedRole) },
+                    onRegister = { enableFingerprintForSelectedRole() },
+                    onDisable = { showDisableDialog = true }
                 )
 
                 Spacer(Modifier.height(10.dp))
-                SecondaryButton("Crear cuenta") { appState.toast = "Registro simulado habilitado" }
+                SecondaryButton("Crear cuenta") { appState.toast = "Registro simulado: el usuario podrá elegir rol y activar huella después" }
             }
+        }
+    }
+}
+
+@Composable
+private fun DemoCredentialHint(role: Role) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White.copy(.06f))
+            .border(1.dp, Color.White.copy(.10f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Outlined.Security, null, tint = NubaCyan, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Cuenta demo ${role.title}", color = Color.White.copy(.88f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Text("${BiometricAuth.defaultEmail(role)} · clave: ${BiometricAuth.defaultPassword(role)}", color = NubaMuted, fontSize = 10.sp)
         }
     }
 }
@@ -238,31 +320,39 @@ private fun BiometricPanel(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(22.dp))
-            .background(Color.White.copy(.07f))
-            .border(1.dp, Color.White.copy(.14f), RoundedCornerShape(22.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(Color.White.copy(.10f), NubaViolet.copy(.13f), NubaCyan.copy(.08f))
+                )
+            )
+            .border(1.dp, Color.White.copy(.16f), RoundedCornerShape(22.dp))
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (enabled) NubaViolet.copy(.35f) else Color.White.copy(.08f)),
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(17.dp))
+                    .background(if (enabled) NubaCyan.copy(.18f) else Color.White.copy(.08f))
+                    .border(1.dp, if (enabled) NubaCyan.copy(.55f) else Color.White.copy(.14f), RoundedCornerShape(17.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Outlined.Fingerprint, null, tint = if (available) NubaCyan else NubaMuted, modifier = Modifier.size(28.dp))
+                Icon(Icons.Outlined.Fingerprint, null, tint = if (available) NubaCyan else NubaMuted, modifier = Modifier.size(30.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Acceso con huella", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Acceso biométrico", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                    if (enabled) {
+                        Spacer(Modifier.width(6.dp))
+                        Icon(Icons.Outlined.VerifiedUser, null, tint = NubaCyan, modifier = Modifier.size(16.dp))
+                    }
+                }
                 Text(
-                    if (selectedRole == Role.CLIENTE) {
-                        if (enabled) "Activado para Cliente" else status
-                    } else {
-                        "Disponible solo para Cliente"
-                    },
+                    if (enabled) "Listo para ${selectedRole.title}. Al abrir NUBA se pedirá huella automáticamente." else status,
                     color = NubaMuted,
-                    fontSize = 11.sp
+                    fontSize = 11.sp,
+                    lineHeight = 14.sp
                 )
             }
         }
@@ -270,9 +360,9 @@ private fun BiometricPanel(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = onLogin,
-                enabled = enabled && selectedRole == Role.CLIENTE && available,
-                modifier = Modifier.weight(1f).height(48.dp),
-                shape = RoundedCornerShape(16.dp),
+                enabled = enabled && available,
+                modifier = Modifier.weight(1f).height(50.dp),
+                shape = RoundedCornerShape(17.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = NubaViolet, disabledContainerColor = Color.White.copy(.10f))
             ) {
                 Icon(Icons.Outlined.Fingerprint, null, modifier = Modifier.size(18.dp))
@@ -281,20 +371,23 @@ private fun BiometricPanel(
             }
             Button(
                 onClick = if (enabled) onDisable else onRegister,
-                enabled = selectedRole == Role.CLIENTE && available,
-                modifier = Modifier.weight(1f).height(48.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = if (enabled) Color.White.copy(.12f) else NubaCyan.copy(.85f), disabledContainerColor = Color.White.copy(.10f))
+                enabled = available,
+                modifier = Modifier.weight(1f).height(50.dp),
+                shape = RoundedCornerShape(17.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (enabled) Color.White.copy(.13f) else NubaCyan.copy(.88f),
+                    disabledContainerColor = Color.White.copy(.10f)
+                )
             ) {
                 Icon(if (enabled) Icons.Outlined.Lock else Icons.Outlined.Fingerprint, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(if (enabled) "Quitar" else "Activar", fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text(if (enabled) "Desactivar" else "Activar", fontSize = 11.5.sp, fontWeight = FontWeight.Black)
             }
         }
         Spacer(Modifier.height(8.dp))
         Text(
-            "La huella no reemplaza correo y contraseña; solo agiliza el ingreso del usuario cliente.",
-            color = Color.White.copy(.55f),
+            "Para activar se pide contraseña y huella. Para desactivar se vuelve a pedir contraseña. Así no se quita la seguridad con un toque accidental.",
+            color = Color.White.copy(.58f),
             fontSize = 10.sp,
             lineHeight = 13.sp
         )
