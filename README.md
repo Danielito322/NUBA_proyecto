@@ -1,25 +1,39 @@
-# NUBA - App nativa Android con Jetpack Compose
+# NUBA - App móvil nativa con Jetpack Compose
 
-## Cómo abrir
+NUBA es una aplicación móvil de reservas para Deportes, Belleza y Entretenimiento. Incluye cliente, proveedor y administrador.
 
-1. Descomprime el ZIP.
-2. Abre Android Studio.
-3. Selecciona **Open** y abre la carpeta `NUBA_Compose_Nativo`.
-4. Espera la sincronización de Gradle.
-5. Ejecuta con **Run** en emulador o celular.
+## Avance actual
 
-## Google Maps
+- Kotlin + Jetpack Compose
+- Login por roles
+- Firebase Auth conectado
+- Huella dactilar con BiometricPrompt
+- Mapa de Puno
+- Reservas, pago simulado, QR, tienda, carrito y reseñas
+- Panel proveedor
+- Panel administrador
 
-La clave de demostración está en `local.properties`:
+## Firebase
+
+El proyecto ya incluye `app/google-services.json` y las dependencias Firebase necesarias para autenticación.
+
+Para que el registro/login real funcione, habilita en Firebase Console:
+
+Authentication > Sign-in method > Email/Password
+
+## Biometría
+
+La huella funciona como acceso rápido después de validar la cuenta con contraseña. No reemplaza el login tradicional.
+
+## Ejecutar
+
+1. Abrir carpeta en Android Studio.
+2. Sync Project with Gradle Files.
+3. Run.
+
+Si aparece error de SDK, crea `local.properties` con:
 
 ```properties
-api key d egoogle
+sdk.dir=C\:\\Users\\DANIEL\\AppData\\Local\\Android\\Sdk
+MAPS_API_KEY=TU_CLAVE_GOOGLE_MAPS
 ```
-
-E
-
-## Nota
-
-Es un avance funcional de prototipo nativo. Los datos se manejan en memoria local para presentación. No hay backend todavía.
-
-

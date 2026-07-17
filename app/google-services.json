@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "691624229077",
+    "project_id": "nuba-49367",
+    "storage_bucket": "nuba-49367.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:691624229077:android:e40116c4ba3fe8b7b44a5c",
+        "android_client_info": {
+          "package_name": "com.daniel.nuba"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB4EuGjgnBwAmo2XDkEKHS-RE22Q_Ik1LA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

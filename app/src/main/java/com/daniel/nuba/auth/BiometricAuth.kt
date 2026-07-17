@@ -7,36 +7,85 @@ import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
+import com.daniel.nuba.model.Role
 
 object BiometricAuth {
-    private const val PREFS = "nuba_biometric_prefs"
-    private const val KEY_ENABLED = "biometric_enabled_client"
-    private const val KEY_EMAIL = "client_email"
-    private const val KEY_NAME = "client_name"
+    private const val PREFS = "nuba_biometric_prefs_v2"
+    private const val KEY_LAST_ROLE = "last_biometric_role"
 
-    fun isEnabled(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
+    private fun roleKey(role: Role, suffix: String): String = "${role.name.lowercase()}_$suffix"
 
-    fun savedEmail(context: Context): String =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_EMAIL, "daniel@nuba.app") ?: "daniel@nuba.app"
+    fun defaultEmail(role: Role): String = when (role) {
+        Role.CLIENTE -> "daniel@nuba.app"
+        Role.PROVEEDOR -> "proveedor@nuba.app"
+        Role.ADMIN -> "admin@nuba.app"
+    }
 
-    fun savedName(context: Context): String =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_NAME, "Daniel Apaza") ?: "Daniel Apaza"
+    fun defaultPassword(role: Role): String = when (role) {
+        Role.CLIENTE -> "12345678"
+        Role.PROVEEDOR -> "proveedor123"
+        Role.ADMIN -> "admin123"
+    }
 
-    fun saveClient(context: Context, email: String, name: String = "Daniel Apaza") {
+    fun defaultName(role: Role): String = when (role) {
+        Role.CLIENTE -> "Daniel Apaza"
+        Role.PROVEEDOR -> "Proveedor NUBA"
+        Role.ADMIN -> "Administrador"
+    }
+
+    fun isEnabled(context: Context, role: Role): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(roleKey(role, "enabled"), false)
+
+    fun savedEmail(context: Context, role: Role): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(roleKey(role, "email"), defaultEmail(role)) ?: defaultEmail(role)
+
+    fun savedName(context: Context, role: Role): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(roleKey(role, "name"), defaultName(role)) ?: defaultName(role)
+
+    fun lastRole(context: Context): Role? {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_LAST_ROLE, null)
+        return raw?.let { runCatching { Role.valueOf(it) }.getOrNull() }
+    }
+
+    fun hasAnyEnabled(context: Context): Boolean = Role.entries.any { isEnabled(context, it) }
+
+    fun saveRole(context: Context, role: Role, email: String, name: String = defaultName(role)) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putBoolean(KEY_ENABLED, true)
-            .putString(KEY_EMAIL, email.ifBlank { "daniel@nuba.app" })
-            .putString(KEY_NAME, name)
+            .putBoolean(roleKey(role, "enabled"), true)
+            .putString(roleKey(role, "email"), email.ifBlank { defaultEmail(role) })
+            .putString(roleKey(role, "name"), name)
+            .putString(KEY_LAST_ROLE, role.name)
             .apply()
     }
 
-    fun disable(context: Context) {
+    fun rememberLastRole(context: Context, role: Role) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .clear()
+            .putString(KEY_LAST_ROLE, role.name)
             .apply()
+    }
+
+    fun disableRole(context: Context, role: Role) {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val editor = prefs.edit()
+            .remove(roleKey(role, "enabled"))
+            .remove(roleKey(role, "email"))
+            .remove(roleKey(role, "name"))
+        if (prefs.getString(KEY_LAST_ROLE, null) == role.name) {
+            val next = Role.entries.firstOrNull { it != role && isEnabled(context, it) }
+            if (next == null) editor.remove(KEY_LAST_ROLE) else editor.putString(KEY_LAST_ROLE, next.name)
+        }
+        editor.apply()
+    }
+
+    fun credentialIsValid(role: Role, email: String, password: String): Boolean {
+        val expectedEmail = defaultEmail(role)
+        val expectedPassword = defaultPassword(role)
+        return email.trim().equals(expectedEmail, ignoreCase = true) && password == expectedPassword
     }
 
     fun statusMessage(context: Context): String {
@@ -59,6 +108,7 @@ object BiometricAuth {
         activity: FragmentActivity,
         title: String,
         subtitle: String,
+        description: String = "Usa la huella registrada en tu teléfono. También puedes entrar con contraseña.",
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
@@ -87,7 +137,7 @@ object BiometricAuth {
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(title)
             .setSubtitle(subtitle)
-            .setDescription("Usa la huella registrada en tu teléfono. El correo y contraseña siguen disponibles.")
+            .setDescription(description)
             .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
             .setNegativeButtonText("Usar contraseña")
             .build()
