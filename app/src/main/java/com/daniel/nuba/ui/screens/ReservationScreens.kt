@@ -21,34 +21,23 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.daniel.nuba.ui.viewmodels.ReservationViewModel
 import com.daniel.nuba.data.AppState
 import com.daniel.nuba.data.monthDays
 import com.daniel.nuba.model.AppRoute
 import com.daniel.nuba.ui.components.*
 import com.daniel.nuba.ui.theme.*
-import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 
-private fun reservationExtraPrice(name: String): Int = when (name) {
-    "Balón" -> 12
-    "Agua" -> 10
-    "Servicio extra" -> 20
-    "Decoración" -> 15
-    else -> 0
-}
-
 @Composable
-fun ReserveScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
+fun ReserveScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ReservationViewModel = viewModel()) {
     val venue = appState.selectedVenue()
-    var monthOffset by remember { mutableStateOf(0L) }
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    var selectedTime by remember { mutableStateOf("18:00") }
-    var extras by remember { mutableStateOf(setOf<String>()) }
     val locale = Locale("es", "PE")
-    val days = monthDays(monthOffset)
+    val days = monthDays(viewModel.monthOffset)
     val monthTitle = days.first().month.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.titlecase(locale) } + " " + days.first().year
-    val total = venue.price + extras.fold(0) { acc, item -> acc + reservationExtraPrice(item) }
+    val total = viewModel.calculateTotal(venue.price)
     val morning = listOf("08:00","09:00","10:00","11:00")
     val afternoon = listOf("14:00","15:00","16:00","17:00")
     val night = listOf("18:00","19:00","20:00","21:00")
@@ -60,14 +49,14 @@ fun ReserveScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
             item {
                 GlassCard {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { if (monthOffset > 0) monthOffset-- }, enabled = monthOffset > 0, modifier = Modifier.glassIcon()) { Icon(Icons.Outlined.ChevronLeft, null, tint = Color.White) }
+                        IconButton(onClick = { if (viewModel.monthOffset > 0) viewModel.monthOffset-- }, enabled = viewModel.monthOffset > 0, modifier = Modifier.glassIcon()) { Icon(Icons.Outlined.ChevronLeft, null, tint = Color.White) }
                         Text(monthTitle, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { if (monthOffset < 3) monthOffset++ }, enabled = monthOffset < 3, modifier = Modifier.glassIcon()) { Icon(Icons.Outlined.ChevronRight, null, tint = Color.White) }
+                        IconButton(onClick = { if (viewModel.monthOffset < 3) viewModel.monthOffset++ }, enabled = viewModel.monthOffset < 3, modifier = Modifier.glassIcon()) { Icon(Icons.Outlined.ChevronRight, null, tint = Color.White) }
                     }
                     Spacer(Modifier.height(12.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                         days.forEach { day ->
-                            val active = day == selectedDate
+                            val active = day == viewModel.selectedDate
                             Column(
                                 modifier = Modifier
                                     .width(62.dp)
@@ -75,7 +64,7 @@ fun ReserveScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                                     .clip(RoundedCornerShape(19.dp))
                                     .background(if (active) NubaViolet.copy(.52f) else Color.White.copy(.06f))
                                     .border(1.dp, if (active) NubaViolet else Color.White.copy(.1f), RoundedCornerShape(19.dp))
-                                    .clickable { selectedDate = day }
+                                    .clickable { viewModel.selectedDate = day }
                                     .padding(8.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
@@ -87,15 +76,15 @@ fun ReserveScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                     }
                 }
             }
-            item { TimeGroup("Mañana", morning, selectedTime, occupied) { selectedTime = it } }
-            item { TimeGroup("Tarde", afternoon, selectedTime, occupied) { selectedTime = it } }
-            item { TimeGroup("Noche", night, selectedTime, occupied) { selectedTime = it } }
+            item { TimeGroup("Mañana", morning, viewModel.selectedTime, occupied) { viewModel.selectedTime = it } }
+            item { TimeGroup("Tarde", afternoon, viewModel.selectedTime, occupied) { viewModel.selectedTime = it } }
+            item { TimeGroup("Noche", night, viewModel.selectedTime, occupied) { viewModel.selectedTime = it } }
             item {
                 SectionTitle("Extras", "Se agregan al total final")
                 Spacer(Modifier.height(8.dp))
                 listOf("Balón", "Agua", "Servicio extra", "Decoración").forEach { extra ->
-                    val active = extra in extras
-                    GlassCard(modifier = Modifier.padding(bottom = 8.dp).clickable { extras = if (active) extras - extra else extras + extra }, radius = 19) {
+                    val active = extra in viewModel.extras
+                    GlassCard(modifier = Modifier.padding(bottom = 8.dp).clickable { viewModel.extras = if (active) viewModel.extras - extra else viewModel.extras + extra }, radius = 19) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(if (active) Icons.Outlined.CheckCircle else Icons.Outlined.AddCircleOutline, null, tint = if (active) NubaGreen else NubaMuted)
                             Spacer(Modifier.width(10.dp))
@@ -111,10 +100,7 @@ fun ReserveScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                 }
                 Spacer(Modifier.height(12.dp))
                 PrimaryButton("Continuar al pago", icon = Icons.Outlined.Payment) {
-                    appState.pendingDate = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, locale).replaceFirstChar { it.titlecase(locale) } + " ${selectedDate.dayOfMonth} de " + selectedDate.month.getDisplayName(TextStyle.FULL, locale)
-                    appState.pendingTime = selectedTime
-                    appState.pendingExtras = extras.toList()
-                    onNavigate(AppRoute.Payment)
+                    viewModel.continueToPayment(appState, locale, onNavigate)
                 }
             }
         }
@@ -148,10 +134,9 @@ private fun TimeGroup(title: String, times: List<String>, selected: String, occu
 }
 
 @Composable
-fun PaymentScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
+fun PaymentScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ReservationViewModel = viewModel()) {
     val venue = appState.selectedVenue()
-    var method by remember { mutableStateOf("Yape") }
-    val extras = appState.pendingExtras.fold(0) { acc, item -> acc + reservationExtraPrice(item) }
+    val extras = appState.pendingExtras.fold(0) { acc, item -> acc + viewModel.reservationExtraPrice(item) }
     val total = venue.price + extras
     MobileScaffold(appState, AppRoute.Payment, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
@@ -170,19 +155,19 @@ fun PaymentScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
             item {
                 SectionTitle("Método de pago", "Selecciona y confirma")
                 Spacer(Modifier.height(8.dp))
-                listOf("Yape", "Plin", "Tarjeta").forEach { option -> PaymentMethod(option, option == method) { method = option } }
+                listOf("Yape", "Plin", "Tarjeta").forEach { option -> 
+                    PaymentMethod(option, option == viewModel.paymentMethod) { viewModel.paymentMethod = option } 
+                }
             }
             item {
                 GlassCard {
-                    Text(if (method == "Tarjeta") "Tarjeta de prueba" else "Número para pagar", color = Color.White, fontWeight = FontWeight.Black)
-                    Text(if (method == "Tarjeta") "**** **** **** 4242" else "987 654 321", color = NubaCyan, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    Text(if (viewModel.paymentMethod == "Tarjeta") "Tarjeta de prueba" else "Número para pagar", color = Color.White, fontWeight = FontWeight.Black)
+                    Text(if (viewModel.paymentMethod == "Tarjeta") "**** **** **** 4242" else "987 654 321", color = NubaCyan, fontSize = 24.sp, fontWeight = FontWeight.Black)
                     Text("Al confirmar, el sistema registra el pago y crea el QR único de ingreso.", color = NubaMuted, fontSize = 12.sp)
                 }
                 Spacer(Modifier.height(12.dp))
                 PrimaryButton("Confirmar pago y generar QR", icon = Icons.Outlined.QrCode) {
-                    appState.pendingPayment = method
-                    appState.createBooking(total)
-                    onNavigate(AppRoute.Confirmation)
+                    viewModel.confirmPayment(appState, total, onNavigate)
                 }
             }
         }
@@ -214,8 +199,7 @@ fun ConfirmationScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
 }
 
 @Composable
-fun BookingsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
-    var reviewBooking by remember { mutableStateOf<String?>(null) }
+fun BookingsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ReservationViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Bookings, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Mis reservas", "Próximos planes", "QR, historial, cancelación y reseñas.") }
@@ -232,33 +216,30 @@ fun BookingsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                     }
                     Spacer(Modifier.height(10.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { booking.status = "Cancelada" }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) { Text("Cancelar") }
-                        Button(onClick = { reviewBooking = booking.venueId }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Calificar") }
+                        OutlinedButton(onClick = { viewModel.cancelBooking(booking) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) { Text("Cancelar") }
+                        Button(onClick = { viewModel.openReview(booking.venueId) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Calificar") }
                     }
                 }
             }
         }
     }
-    if (reviewBooking != null) ReviewDialog(onDismiss = { reviewBooking = null }) { rating, comment ->
-        appState.addReview(reviewBooking!!, rating, comment)
-        reviewBooking = null
+    if (viewModel.showReviewDialog) ReviewDialog(onDismiss = { viewModel.showReviewDialog = false }, viewModel = viewModel) {
+        viewModel.submitReview(appState)
     }
 }
 
 @Composable
-fun ReviewsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
+fun ReviewsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ReservationViewModel = viewModel()) {
     val venue = appState.selectedVenue()
-    var showDialog by remember { mutableStateOf(false) }
     MobileScaffold(appState, AppRoute.Reviews, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Reseñas", venue.name, "Lee experiencias y publica tu opinión.", back = { onNavigate(AppRoute.Detail) }) }
-            item { PrimaryButton("Agregar reseña", icon = Icons.Outlined.RateReview) { showDialog = true } }
+            item { PrimaryButton("Agregar reseña", icon = Icons.Outlined.RateReview) { viewModel.openReview(venue.id) } }
             items(appState.venueReviews(venue.id)) { review -> ReviewMiniCard(review.comment, review.author, review.rating) }
         }
     }
-    if (showDialog) ReviewDialog(onDismiss = { showDialog = false }) { rating, comment ->
-        appState.addReview(venue.id, rating, comment)
-        showDialog = false
+    if (viewModel.showReviewDialog) ReviewDialog(onDismiss = { viewModel.showReviewDialog = false }, viewModel = viewModel) {
+        viewModel.submitReview(appState)
     }
 }
 
@@ -282,15 +263,13 @@ fun PaymentSheet(title: String, amount: Int, onDismiss: () -> Unit, onConfirm: (
 }
 
 @Composable
-fun ReviewDialog(onDismiss: () -> Unit, onSubmit: (Int, String) -> Unit) {
-    var rating by remember { mutableStateOf(5) }
-    var comment by remember { mutableStateOf("") }
+fun ReviewDialog(onDismiss: () -> Unit, viewModel: ReservationViewModel, onSubmit: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { Button(onClick = { onSubmit(rating, comment.ifBlank { "Excelente servicio y reserva rápida." }) }, colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Publicar") } },
+        confirmButton = { Button(onClick = onSubmit, colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Publicar") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
         title = { Text("Calificar experiencia", color = Color.White, fontWeight = FontWeight.Black) },
-        text = { Column { RatingStars(rating, { rating = it }); Spacer(Modifier.height(10.dp)); OutlinedTextField(value = comment, onValueChange = { comment = it }, placeholder = { Text("Escribe tu reseña") }, modifier = Modifier.fillMaxWidth(), minLines = 3) } },
+        text = { Column { RatingStars(viewModel.rating, { viewModel.rating = it }); Spacer(Modifier.height(10.dp)); OutlinedTextField(value = viewModel.comment, onValueChange = { viewModel.comment = it }, placeholder = { Text("Escribe tu reseña") }, modifier = Modifier.fillMaxWidth(), minLines = 3) } },
         containerColor = Color(0xEE142238),
         shape = RoundedCornerShape(28.dp)
     )
