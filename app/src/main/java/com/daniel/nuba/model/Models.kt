@@ -30,6 +30,14 @@ enum class Category(val label: String, val icon: ImageVector) {
     ENTRETENIMIENTO("Entretenimiento", Icons.Outlined.EventSeat)
 }
 
+data class AuthUser(
+    val email: String,
+    val displayName: String,
+    val role: Role,
+    val firebaseUid: String? = null,
+    val isDemo: Boolean = false
+)
+
 data class Venue(
     val id: String,
     var name: String,
@@ -105,7 +113,11 @@ data class AdminRequest(
     var status: String = "Pendiente"
 )
 
-data class NavItem(val label: String, val icon: ImageVector, val route: AppRoute)
+data class NavItem(
+    val label: String,
+    val icon: ImageVector,
+    val route: AppRoute
+)
 
 sealed class AppRoute(val title: String, val icon: ImageVector) {
     data object Login : AppRoute("Login", Icons.Outlined.Person)

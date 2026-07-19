@@ -5,6 +5,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
+import com.daniel.nuba.model.AuthUser
 
 /**
  * Autenticación real preparada para Firebase Auth + biometría local.
@@ -13,13 +14,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * Android BiometricPrompt no guarda huellas en Firebase: solo desbloquea en este
  * teléfono una cuenta ya verificada con correo y contraseña.
  */
-data class AuthUser(
-    val email: String,
-    val displayName: String,
-    val role: Role,
-    val firebaseUid: String? = null,
-    val isDemo: Boolean = false
-)
+
 
 interface AuthRepository {
     suspend fun signIn(email: String, password: String, role: Role): Result<AuthUser>
@@ -30,10 +25,8 @@ interface AuthRepository {
 class FirebaseAuthRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 ) : AuthRepository {
-
     override suspend fun signIn(email: String, password: String, role: Role): Result<AuthUser> {
         val cleanEmail = email.trim()
-
         // Cuentas demo para exposición sin depender de internet o de usuarios creados en Firebase.
         if (BiometricAuth.credentialIsValid(role, cleanEmail, password)) {
             return Result.success(
@@ -47,6 +40,7 @@ class FirebaseAuthRepository(
             )
         }
 
+        // Evita que pase datos vacios para no realizar consultas innecesarias a Firebase
         if (cleanEmail.isBlank() || password.isBlank()) {
             return Result.failure(IllegalArgumentException("Completa correo y contraseña"))
         }

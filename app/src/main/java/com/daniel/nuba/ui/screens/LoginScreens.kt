@@ -25,7 +25,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.daniel.nuba.auth.AuthUser
+import com.daniel.nuba.model.AuthUser
 import com.daniel.nuba.auth.BiometricAuth
 import com.daniel.nuba.auth.FirebaseAuthRepository
 import com.daniel.nuba.auth.findFragmentActivity
