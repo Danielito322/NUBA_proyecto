@@ -27,7 +27,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.daniel.nuba.auth.BiometricAuth
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.daniel.nuba.ui.viewmodels.ClientViewModel
 import com.daniel.nuba.data.AppState
 import com.daniel.nuba.model.AppRoute
 import com.daniel.nuba.model.Category
@@ -37,11 +38,11 @@ import com.daniel.nuba.ui.components.*
 import com.daniel.nuba.ui.theme.*
 
 @Composable
-fun HomeScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
+fun HomeScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Home, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
             item {
-                ScreenHeader("Hola, ${appState.userName.split(' ').first()}", "Reserva tu momento", "Deportes, belleza y entretenimiento en Puno.", Icons.Outlined.Person) { onNavigate(AppRoute.Profile) }
+                ScreenHeader("Hola, ${viewModel.firstName(appState.userName)}", "Reserva tu momento", "Deportes, belleza y entretenimiento en Puno.", Icons.Outlined.Person) { onNavigate(AppRoute.Profile) }
             }
             item {
                 ImageHero("https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1400&q=80", 210) {
@@ -64,16 +65,15 @@ fun HomeScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                 }
             }
             item { SectionTitle("Recomendados", "Locales activos cerca de ti") }
-            items(appState.venues.take(4)) { venue -> VenueCard(venue, appState, onNavigate) }
+            items(viewModel.recommendedVenues(appState)) { venue -> VenueCard(venue, appState, onNavigate) }
         }
     }
 }
 
 @Composable
-fun ExploreScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
+fun ExploreScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Explore, onNavigate) {
-        var query by remember { mutableStateOf("") }
-        val filtered = appState.venues.filter { it.category == appState.selectedCategory && it.name.contains(query, true) }
+        val filtered = viewModel.filteredVenues(appState)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Explorar", appState.selectedCategory.label, "Filtra locales, revisa fotos, tienda y disponibilidad.") }
             item {
@@ -83,8 +83,8 @@ fun ExploreScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
             }
             item {
                 OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
+                    value = viewModel.exploreQuery,
+                    onValueChange = { viewModel.exploreQuery = it },
                     leadingIcon = { Icon(Icons.Outlined.Search, null) },
                     placeholder = { Text("Buscar local o servicio") },
                     modifier = Modifier.fillMaxWidth(),
@@ -105,10 +105,10 @@ fun ExploreScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
 }
 
 @Composable
-fun DetailScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
-    val venue = appState.selectedVenue()
-    val products = appState.venueProducts(venue.id)
-    val reviews = appState.venueReviews(venue.id)
+fun DetailScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
+    val venue = viewModel.getVenue(appState)
+    val products = viewModel.getProducts(appState, venue.id)
+    val reviews = viewModel.getReviews(appState, venue.id)
     MobileScaffold(appState, AppRoute.Detail, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Detalle del local", venue.name, venue.address, back = { onNavigate(AppRoute.Explore) }) }
@@ -171,9 +171,9 @@ fun DetailScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
 }
 
 @Composable
-fun ShopScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
-    val venue = appState.selectedVenue()
-    val products = appState.venueProducts(venue.id)
+fun ShopScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
+    val venue = viewModel.getVenue(appState)
+    val products = viewModel.getProducts(appState, venue.id)
     MobileScaffold(appState, AppRoute.Shop, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Tienda del local", venue.name, "Productos propios del negocio elegido.", Icons.Outlined.ShoppingCart) { onNavigate(AppRoute.Cart) } }
@@ -184,8 +184,7 @@ fun ShopScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
 }
 
 @Composable
-fun CartScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
-    var showPayment by remember { mutableStateOf(false) }
+fun CartScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Cart, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Tu compra", "Carrito", "Revisa productos y cantidades.", back = { onNavigate(AppRoute.Shop) }) }
@@ -208,27 +207,26 @@ fun CartScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                     Row { Text("Total", color = NubaMuted); Spacer(Modifier.weight(1f)); Text("S/ ${appState.cartTotal()}.00", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black) }
                 }
                 Spacer(Modifier.height(12.dp))
-                PrimaryButton("Finalizar compra", enabled = appState.cart.isNotEmpty(), icon = Icons.Outlined.CreditCard) { showPayment = true }
+                PrimaryButton("Finalizar compra", enabled = appState.cart.isNotEmpty(), icon = Icons.Outlined.CreditCard) { viewModel.showPaymentSheet = true }
             }
         }
     }
-    if (showPayment) PaymentSheet(title = "Confirmar compra", amount = appState.cartTotal(), onDismiss = { showPayment = false }) {
-        appState.cart.clear()
-        appState.toast = "Compra confirmada"
-        showPayment = false
+    if (viewModel.showPaymentSheet) PaymentSheet(title = "Confirmar compra", amount = appState.cartTotal(), onDismiss = { viewModel.showPaymentSheet = false }) {
+        viewModel.finalizePurchase(appState)
     }
 }
 
 @Composable
-fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
+fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
     val context = LocalContext.current
-    var showSecurityDialog by remember { mutableStateOf(false) }
-    var confirmPassword by remember { mutableStateOf("") }
-    var biometricEnabled by remember { mutableStateOf(BiometricAuth.isEnabled(context, appState.role)) }
 
-    if (showSecurityDialog) {
+    LaunchedEffect(Unit) {
+        viewModel.loadProfileState(context, appState)
+    }
+
+    if (viewModel.showSecurityDialog) {
         AlertDialog(
-            onDismissRequest = { showSecurityDialog = false; confirmPassword = "" },
+            onDismissRequest = { viewModel.showSecurityDialog = false; viewModel.confirmPassword = "" },
             title = { Text("Seguridad biométrica") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -237,8 +235,8 @@ fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                         fontSize = 13.sp
                     )
                     OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
+                        value = viewModel.confirmPassword,
+                        onValueChange = { viewModel.confirmPassword = it },
                         label = { Text("Contraseña") },
                         leadingIcon = { Icon(Icons.Outlined.Lock, null) },
                         visualTransformation = PasswordVisualTransformation(),
@@ -248,19 +246,9 @@ fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    if (BiometricAuth.credentialIsValid(appState.role, appState.userEmail, confirmPassword)) {
-                        BiometricAuth.disableRole(context, appState.role)
-                        biometricEnabled = false
-                        appState.toast = "Acceso biométrico olvidado para ${appState.role.title}"
-                        showSecurityDialog = false
-                        confirmPassword = ""
-                    } else {
-                        appState.toast = "Contraseña incorrecta. No se modificó la seguridad."
-                    }
-                }) { Text("Confirmar") }
+                TextButton(onClick = { viewModel.disableBiometric(context, appState) }) { Text("Confirmar") }
             },
-            dismissButton = { TextButton(onClick = { showSecurityDialog = false; confirmPassword = "" }) { Text("Cancelar") } }
+            dismissButton = { TextButton(onClick = { viewModel.showSecurityDialog = false; viewModel.confirmPassword = "" }) { Text("Cancelar") } }
         )
     }
 
@@ -286,7 +274,7 @@ fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                     StatCard("Reseñas", appState.reviews.count { it.author == appState.userName }.toString(), Modifier.weight(1f))
                 }
             }
-            item { BiometricSecurityCard(biometricEnabled, appState.role.title) { showSecurityDialog = true } }
+            item { BiometricSecurityCard(viewModel.biometricEnabled, appState.role.title) { viewModel.showSecurityDialog = true } }
             item { MenuLink("Mis reservas", "QR, historial y próximos planes", Icons.Outlined.CalendarMonth) { onNavigate(AppRoute.Bookings) } }
             item { MenuLink("Carrito", "Productos seleccionados", Icons.Outlined.ShoppingCart) { onNavigate(AppRoute.Cart) } }
             item { MenuLink("Cerrar sesión", "Volver a elegir tipo de cuenta", Icons.Outlined.Logout) { onNavigate(AppRoute.Login) } }

@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.daniel.nuba.ui.viewmodels.MapViewModel
 import com.daniel.nuba.data.AppState
 import com.daniel.nuba.model.AppRoute
 import com.daniel.nuba.model.Category
@@ -27,20 +29,23 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 
 @Composable
-fun MapScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
-    var selectedFilter by remember { mutableStateOf<Category?>(appState.selectedCategory) }
+fun MapScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: MapViewModel = viewModel()) {
+    LaunchedEffect(Unit) {
+        viewModel.initialize(appState.selectedCategory)
+    }
+
     val puno = LatLng(-15.8402, -70.0219)
     val cameraPositionState = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(puno, 13.5f) }
-    val visibleVenues = appState.venues.filter { selectedFilter == null || it.category == selectedFilter }
+    val visibleVenues = viewModel.getVisibleVenues(appState)
 
     MobileScaffold(appState, AppRoute.Map, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Puno, Perú", "Mapa de locales", "Google Maps nativo con categorías y locales disponibles.", Icons.Outlined.LocationOn) {} }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    CategoryPill(Category.DEPORTES, selectedFilter == Category.DEPORTES) { selectedFilter = Category.DEPORTES }
-                    CategoryPill(Category.BELLEZA, selectedFilter == Category.BELLEZA) { selectedFilter = Category.BELLEZA }
-                    CategoryPill(Category.ENTRETENIMIENTO, selectedFilter == Category.ENTRETENIMIENTO) { selectedFilter = Category.ENTRETENIMIENTO }
+                    Category.entries.forEach { category ->
+                        CategoryPill(category, viewModel.selectedFilter == category) { viewModel.updateFilter(category) }
+                    }
                 }
             }
             item {
@@ -55,7 +60,7 @@ fun MapScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                                 title = venue.name,
                                 snippet = "${venue.category.label} · ${venue.distance}",
                                 onClick = {
-                                    appState.selectedVenueId = venue.id
+                                    viewModel.selectVenue(appState, venue.id)
                                     false
                                 }
                             )

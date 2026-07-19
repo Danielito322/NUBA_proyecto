@@ -5,7 +5,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -20,6 +19,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.daniel.nuba.ui.viewmodels.ProviderAdminViewModel
 import com.daniel.nuba.data.AppState
 import com.daniel.nuba.model.AppRoute
 import com.daniel.nuba.model.Category
@@ -27,32 +28,31 @@ import com.daniel.nuba.ui.components.*
 import com.daniel.nuba.ui.theme.*
 
 @Composable
-fun ProviderScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
-    var tab by remember { mutableStateOf("Resumen") }
+fun ProviderScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ProviderAdminViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Provider, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Proveedor", "Mi negocio", "Gestiona reservas, local, horarios, productos y reseñas.") }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("Resumen","Local","Horarios","Productos","Reseñas","QR").forEach { item ->
-                        FilterButton(item, item == tab, Modifier.weight(1f)) { tab = item }
+                        FilterButton(item, item == viewModel.providerTab, Modifier.weight(1f)) { viewModel.providerTab = item }
                     }
                 }
             }
-            when (tab) {
-                "Resumen" -> item { ProviderSummary(appState) }
-                "Local" -> item { ProviderLocal(appState) }
-                "Horarios" -> item { ProviderAvailability(appState) }
-                "Productos" -> item { ProviderProducts(appState) }
-                "Reseñas" -> item { ProviderReviews(appState) }
-                "QR" -> item { ProviderQr(appState) }
+            when (viewModel.providerTab) {
+                "Resumen" -> item { ProviderSummary(appState, viewModel) }
+                "Local" -> item { ProviderLocal(appState, viewModel) }
+                "Horarios" -> item { ProviderAvailability(appState, viewModel) }
+                "Productos" -> item { ProviderProducts(appState, viewModel) }
+                "Reseñas" -> item { ProviderReviews(appState, viewModel) }
+                "QR" -> item { ProviderQr(appState, viewModel) }
             }
         }
     }
 }
 
 @Composable
-private fun ProviderSummary(appState: AppState) {
+private fun ProviderSummary(appState: AppState, viewModel: ProviderAdminViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatCard("Ingresos", "S/ 820", Modifier.weight(1f))
@@ -66,8 +66,8 @@ private fun ProviderSummary(appState: AppState) {
                 Text("${booking.dateLabel} · ${booking.time} · ${booking.status}", color = NubaMuted, fontSize = 12.sp)
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { booking.status = "Rechazada" }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Rechazar") }
-                    Button(onClick = { booking.status = "Aceptada" }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Aprobar") }
+                    OutlinedButton(onClick = { viewModel.updateBookingStatus(booking, "Rechazada") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Rechazar") }
+                    Button(onClick = { viewModel.updateBookingStatus(booking, "Aceptada") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Aprobar") }
                 }
             }
         }
@@ -75,27 +75,27 @@ private fun ProviderSummary(appState: AppState) {
 }
 
 @Composable
-private fun ProviderLocal(appState: AppState) {
+private fun ProviderLocal(appState: AppState, viewModel: ProviderAdminViewModel) {
     val venue = appState.selectedVenue()
-    var name by remember { mutableStateOf(venue.name) }
-    var description by remember { mutableStateOf(venue.description) }
-    var image by remember { mutableStateOf(venue.imageUrl) }
-    var category by remember { mutableStateOf(venue.category) }
+    
+    LaunchedEffect(venue) {
+        viewModel.loadLocalData(venue)
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        ImageHero(image, 180)
-        Category.entries.forEach { cat -> FilterButton(cat.label, cat == category, Modifier.fillMaxWidth()) { category = cat } }
-        TextInput("Nombre del local", name) { name = it }
-        TextInput("Descripción", description) { description = it }
-        TextInput("URL de fotografía", image) { image = it }
+        ImageHero(viewModel.localImage, 180)
+        Category.entries.forEach { cat -> FilterButton(cat.label, cat == viewModel.localCategory, Modifier.fillMaxWidth()) { viewModel.localCategory = cat } }
+        TextInput("Nombre del local", viewModel.localName) { viewModel.localName = it }
+        TextInput("Descripción", viewModel.localDescription) { viewModel.localDescription = it }
+        TextInput("URL de fotografía", viewModel.localImage) { viewModel.localImage = it }
         PrimaryButton("Guardar cambios", icon = Icons.Outlined.Save) {
-            venue.name = name; venue.description = description; venue.imageUrl = image; venue.category = category
-            appState.toast = "Local actualizado"
+            viewModel.saveLocalChanges(appState)
         }
     }
 }
 
 @Composable
-private fun ProviderAvailability(appState: AppState) {
+private fun ProviderAvailability(appState: AppState, viewModel: ProviderAdminViewModel) {
     val venue = appState.selectedVenue()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle("Disponibilidad semanal", "Activa días y ajusta horarios")
@@ -103,7 +103,10 @@ private fun ProviderAvailability(appState: AppState) {
             var active by remember(slot.day) { mutableStateOf(slot.active) }
             GlassCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Switch(checked = active, onCheckedChange = { active = it; slot.active = it }, colors = SwitchDefaults.colors(checkedThumbColor = NubaGreen))
+                    Switch(checked = active, onCheckedChange = { 
+                        active = it
+                        viewModel.toggleSchedule(slot, it)
+                    }, colors = SwitchDefaults.colors(checkedThumbColor = NubaGreen))
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(slot.day, color = Color.White, fontWeight = FontWeight.Black)
@@ -117,10 +120,9 @@ private fun ProviderAvailability(appState: AppState) {
 }
 
 @Composable
-private fun ProviderProducts(appState: AppState) {
-    var showAdd by remember { mutableStateOf(false) }
+private fun ProviderProducts(appState: AppState, viewModel: ProviderAdminViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        PrimaryButton("Agregar producto", icon = Icons.Outlined.AddPhotoAlternate) { showAdd = true }
+        PrimaryButton("Agregar producto", icon = Icons.Outlined.AddPhotoAlternate) { viewModel.showAddProduct = true }
         appState.venueProducts().forEach { product ->
             GlassCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -135,14 +137,13 @@ private fun ProviderProducts(appState: AppState) {
             }
         }
     }
-    if (showAdd) AddProductDialog(onDismiss = { showAdd = false }) { name, price, stock, image, desc ->
-        appState.addProviderProduct(name, price, stock, image, desc)
-        showAdd = false
+    if (viewModel.showAddProduct) AddProductDialog(viewModel) {
+        viewModel.addProduct(appState)
     }
 }
 
 @Composable
-private fun ProviderReviews(appState: AppState) {
+private fun ProviderReviews(appState: AppState, viewModel: ProviderAdminViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle("Reseñas del local", "Responder o reportar comentarios")
         appState.venueReviews().forEach { review ->
@@ -151,8 +152,8 @@ private fun ProviderReviews(appState: AppState) {
                 Text(review.comment, color = Color.White.copy(.84f), fontSize = 13.sp)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { review.status = "Reportada" }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Reportar") }
-                    Button(onClick = { review.response = "Gracias por tu visita."; }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Responder") }
+                    OutlinedButton(onClick = { viewModel.updateReviewStatus(review, "Reportada") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Reportar") }
+                    Button(onClick = { viewModel.respondToReview(review, "Gracias por tu visita.") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Responder") }
                 }
             }
         }
@@ -160,16 +161,11 @@ private fun ProviderReviews(appState: AppState) {
 }
 
 @Composable
-private fun ProviderQr(appState: AppState) {
-    var code by remember { mutableStateOf("") }
+private fun ProviderQr(appState: AppState, viewModel: ProviderAdminViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextInput("Código QR o reserva", code) { code = it }
+        TextInput("Código QR o reserva", viewModel.qrCode) { viewModel.qrCode = it }
         PrimaryButton("Validar ingreso", icon = Icons.Outlined.QrCodeScanner) {
-            val found = appState.bookings.firstOrNull { it.code.equals(code, true) }
-            if (found != null && found.status != "Usada") {
-                found.status = "Usada"
-                appState.toast = "Reserva validada correctamente"
-            } else appState.toast = "Código no válido o ya usado"
+            viewModel.validateQr(appState)
         }
         appState.bookings.firstOrNull()?.let { booking ->
             GlassCard {
@@ -183,30 +179,29 @@ private fun ProviderQr(appState: AppState) {
 }
 
 @Composable
-fun AdminScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
-    var tab by remember { mutableStateOf("Aprobaciones") }
+fun AdminScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ProviderAdminViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Admin, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Administrador", "Panel general", "Controla negocios, usuarios, reportes y reseñas.") }
-            item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Aprobaciones","Negocios","Usuarios","Reseñas").forEach { FilterButton(it, it == tab, Modifier.weight(1f)) { tab = it } } } }
-            when(tab){
-                "Aprobaciones" -> item { AdminApprovals(appState) }
-                "Negocios" -> item { AdminBusinesses(appState) }
+            item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Aprobaciones","Negocios","Usuarios","Reseñas").forEach { FilterButton(it, it == viewModel.adminTab, Modifier.weight(1f)) { viewModel.adminTab = it } } } }
+            when(viewModel.adminTab){
+                "Aprobaciones" -> item { AdminApprovals(appState, viewModel) }
+                "Negocios" -> item { AdminBusinesses(appState, viewModel) }
                 "Usuarios" -> item { AdminUsers() }
-                "Reseñas" -> item { AdminReviews(appState) }
+                "Reseñas" -> item { AdminReviews(appState, viewModel) }
             }
         }
     }
 }
 
 @Composable
-private fun AdminApprovals(appState: AppState) { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { appState.requests.forEach { req -> GlassCard { Text(req.title, color = Color.White, fontWeight = FontWeight.Black); Text("${req.owner} · ${req.category.label} · ${req.status}", color = NubaMuted, fontSize = 12.sp); Spacer(Modifier.height(10.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { req.status = "Rechazado" }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Rechazar") }; Button(onClick = { req.status = "Aprobado" }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Aprobar") } } } } } }
+private fun AdminApprovals(appState: AppState, viewModel: ProviderAdminViewModel) { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { appState.requests.forEach { req -> GlassCard { Text(req.title, color = Color.White, fontWeight = FontWeight.Black); Text("${req.owner} · ${req.category.label} · ${req.status}", color = NubaMuted, fontSize = 12.sp); Spacer(Modifier.height(10.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { viewModel.updateRequestStatus(req, "Rechazado") }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Rechazar") }; Button(onClick = { viewModel.updateRequestStatus(req, "Aprobado") }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Aprobar") } } } } } }
 @Composable
-private fun AdminBusinesses(appState: AppState) { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { appState.venues.forEach { venue -> GlassCard { Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(venue.name, color = Color.White, fontWeight = FontWeight.Black); Text("${venue.category.label} · ${venue.status}", color = NubaMuted, fontSize = 12.sp) }; Switch(checked = venue.status == "Activo", onCheckedChange = { venue.status = if (it) "Activo" else "Suspendido" }) } } } } }
+private fun AdminBusinesses(appState: AppState, viewModel: ProviderAdminViewModel) { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { appState.venues.forEach { venue -> GlassCard { Row(verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text(venue.name, color = Color.White, fontWeight = FontWeight.Black); Text("${venue.category.label} · ${venue.status}", color = NubaMuted, fontSize = 12.sp) }; Switch(checked = venue.status == "Activo", onCheckedChange = { viewModel.updateVenueStatus(venue, it) }) } } } } }
 @Composable
 private fun AdminUsers() { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { listOf("Daniel Apaza - Cliente", "Proveedor NUBA - Proveedor", "Administrador - Admin").forEach { user -> GlassCard { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.Person, null, tint = NubaCyan); Spacer(Modifier.width(10.dp)); Text(user, color = Color.White, fontWeight = FontWeight.Bold); Spacer(Modifier.weight(1f)); Text("Activo", color = NubaGreen, fontSize = 12.sp) } } } } }
 @Composable
-private fun AdminReviews(appState: AppState) { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { appState.reviews.forEach { review -> GlassCard { Text(review.comment, color = Color.White, fontWeight = FontWeight.Bold); Text("${review.author} · Estado: ${review.status}", color = NubaMuted, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { review.status = "Oculta" }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Ocultar") }; Button(onClick = { review.status = "Publicada" }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Publicar") } } } } } }
+private fun AdminReviews(appState: AppState, viewModel: ProviderAdminViewModel) { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { appState.reviews.forEach { review -> GlassCard { Text(review.comment, color = Color.White, fontWeight = FontWeight.Bold); Text("${review.author} · Estado: ${review.status}", color = NubaMuted, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { viewModel.updateReviewStatus(review, "Oculta") }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Ocultar") }; Button(onClick = { viewModel.updateReviewStatus(review, "Publicada") }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Publicar") } } } } } }
 
 @Composable
 private fun FilterButton(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) { Text(text, color = if(selected) Color.White else NubaMuted, fontSize = 11.sp, fontWeight = FontWeight.Black, modifier = modifier.clip(RoundedCornerShape(16.dp)).background(if(selected) NubaViolet.copy(.42f) else Color.White.copy(.06f)).border(1.dp, if(selected) NubaViolet else Color.White.copy(.11f), RoundedCornerShape(16.dp)).clickable(onClick=onClick).padding(vertical = 11.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
@@ -214,7 +209,22 @@ private fun FilterButton(text: String, selected: Boolean, modifier: Modifier = M
 private fun TextInput(label: String, value: String, onValue: (String) -> Unit) { OutlinedTextField(value = value, onValueChange = onValue, label = { Text(label) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = NubaCyan, unfocusedBorderColor = Color.White.copy(.15f), focusedLabelColor = NubaCyan, unfocusedLabelColor = NubaMuted, cursorColor = NubaCyan)) }
 
 @Composable
-private fun AddProductDialog(onDismiss: () -> Unit, onAdd: (String, Int, Int, String, String) -> Unit) {
-    var name by remember { mutableStateOf("") }; var price by remember { mutableStateOf("0") }; var stock by remember { mutableStateOf("0") }; var image by remember { mutableStateOf("") }; var desc by remember { mutableStateOf("") }
-    AlertDialog(onDismissRequest = onDismiss, confirmButton = { Button(onClick = { onAdd(name.ifBlank { "Producto premium" }, price.toIntOrNull() ?: 0, stock.toIntOrNull() ?: 0, image, desc) }, colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Guardar") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }, title = { Text("Nuevo producto", color = Color.White, fontWeight = FontWeight.Black) }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { TextInput("Nombre", name) { name = it }; TextInput("Precio", price) { price = it }; TextInput("Stock", stock) { stock = it }; TextInput("URL de imagen", image) { image = it }; TextInput("Descripción", desc) { desc = it } } }, containerColor = Color(0xEE142238), shape = RoundedCornerShape(28.dp))
+private fun AddProductDialog(viewModel: ProviderAdminViewModel, onAdd: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = { viewModel.showAddProduct = false },
+        confirmButton = { Button(onClick = onAdd, colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Guardar") } },
+        dismissButton = { TextButton(onClick = { viewModel.showAddProduct = false }) { Text("Cancelar") } },
+        title = { Text("Nuevo producto", color = Color.White, fontWeight = FontWeight.Black) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextInput("Nombre", viewModel.newProductName) { viewModel.newProductName = it }
+                TextInput("Precio", viewModel.newProductPrice) { viewModel.newProductPrice = it }
+                TextInput("Stock", viewModel.newProductStock) { viewModel.newProductStock = it }
+                TextInput("URL de imagen", viewModel.newProductImage) { viewModel.newProductImage = it }
+                TextInput("Descripción", viewModel.newProductDesc) { viewModel.newProductDesc = it }
+            }
+        },
+        containerColor = Color(0xEE142238),
+        shape = RoundedCornerShape(28.dp)
+    )
 }
