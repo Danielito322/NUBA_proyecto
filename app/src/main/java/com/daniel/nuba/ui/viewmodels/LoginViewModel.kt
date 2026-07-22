@@ -100,7 +100,7 @@ class LoginViewModel : ViewModel() {
         }
     }
 
-    fun createFirebaseAccount(appState: AppState) {
+    fun createFirebaseAccount(appState: AppState, onSuccess: () -> Unit) {
         if (authBusy) return
         authBusy = true
         viewModelScope.launch {
@@ -112,6 +112,7 @@ class LoginViewModel : ViewModel() {
                 password = registerPassword
                 pendingEnableAfterPassword = user
                 appState.toast = "Cuenta creada en Firebase para ${user.role.title}"
+                onSuccess()
             }.onFailure {
                 appState.toast = it.message ?: "No se pudo crear la cuenta"
             }

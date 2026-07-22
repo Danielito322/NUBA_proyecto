@@ -179,7 +179,7 @@ fun ConfirmationScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
     val booking = appState.bookings.firstOrNull { it.code == appState.lastBookingCode } ?: appState.bookings.first()
     MobileScaffold(appState, AppRoute.Confirmation, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Reserva confirmada", "Código QR", "Muestra este QR al proveedor para validar el ingreso.") }
+            item { ScreenHeader("Reserva confirmada", "Código QR", "Muestra este QR al proveedor para validar el ingreso.", back = { onNavigate(AppRoute.Home) }) }
             item {
                 GlassCard {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -202,7 +202,7 @@ fun ConfirmationScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
 fun BookingsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ReservationViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Bookings, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Mis reservas", "Próximos planes", "QR, historial, cancelación y reseñas.") }
+            item { ScreenHeader("Mis reservas", "Próximos planes", "QR, historial, cancelación y reseñas.", back = { onNavigate(AppRoute.Home) }) }
             if (appState.bookings.isEmpty()) item { EmptyState("Sin reservas", "Cuando confirmes una reserva aparecerá aquí.", Icons.Outlined.CalendarMonth) }
             items(appState.bookings) { booking ->
                 GlassCard {

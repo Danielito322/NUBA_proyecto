@@ -20,6 +20,7 @@ class MainActivity : FragmentActivity() {
                 fun navigate(target: AppRoute) { route = target }
                 when (route) {
                     AppRoute.Login -> LoginScreen(appState, ::navigate)
+                    AppRoute.Register -> RegistroScreen(appState, ::navigate)
                     AppRoute.Home -> HomeScreen(appState, ::navigate)
                     AppRoute.Explore -> ExploreScreen(appState, ::navigate)
                     AppRoute.Detail -> DetailScreen(appState, ::navigate)

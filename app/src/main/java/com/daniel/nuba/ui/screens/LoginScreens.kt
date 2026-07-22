@@ -74,23 +74,6 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: Logi
         )
     }
 
-    if (viewModel.showRegisterDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.showRegisterDialog = false },
-            title = { Text("Crear cuenta") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Se creará una cuenta en Firebase Auth para el rol seleccionado: ${viewModel.selectedRole.title}.", fontSize = 12.sp)
-                    LoginField("Nombre", viewModel.registerName, { viewModel.registerName = it }, Icons.Outlined.Person, KeyboardType.Text)
-                    LoginField("Correo", viewModel.registerEmail, { viewModel.registerEmail = it }, Icons.Outlined.Email, KeyboardType.Email)
-                    LoginField("Contraseña", viewModel.registerPassword, { viewModel.registerPassword = it }, Icons.Outlined.Lock, KeyboardType.Password, true)
-                }
-            },
-            confirmButton = { TextButton(onClick = { viewModel.createFirebaseAccount(appState) }, enabled = !viewModel.authBusy) { Text(if (viewModel.authBusy) "Creando..." else "Crear") } },
-            dismissButton = { TextButton(onClick = { viewModel.showRegisterDialog = false }) { Text("Cancelar") } }
-        )
-    }
-
     Box(Modifier.fillMaxSize()) {
         AsyncImage(
             model = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=80",
@@ -214,7 +197,7 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: Logi
                 )
 
                 Spacer(Modifier.height(10.dp))
-                SecondaryButton("Crear cuenta con Firebase") { viewModel.showRegisterDialog = true }
+                SecondaryButton("Crear cuenta") { onEnter(AppRoute.Register) }
             }
         }
     }
