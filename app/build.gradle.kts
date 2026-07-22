@@ -7,11 +7,7 @@ plugins {
     id("com.google.gms.google-services")
 }
 
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) file.inputStream().use { load(it) }
-}
-val mapsKey = localProperties.getProperty("MAPS_API_KEY") ?: ""
+val mapsKey = "AIzaSyCmKwJsYWd_T4LwX3hzFeR3yLaIlvdOcdQ"
 
 android {
     namespace = "com.daniel.nuba"
