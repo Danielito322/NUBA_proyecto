@@ -1,7 +1,9 @@
 package com.daniel.nuba.auth
 
 import com.daniel.nuba.model.Role
+import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -19,6 +21,8 @@ import com.daniel.nuba.model.AuthUser
 interface AuthRepository {
     suspend fun signIn(email: String, password: String, role: Role): Result<AuthUser>
     suspend fun register(email: String, password: String, role: Role, name: String): Result<AuthUser>
+    suspend fun signInWithFacebook(token: String, role: Role): Result<AuthUser>
+    suspend fun signInWithGoogle(idToken: String, role: Role): Result<AuthUser>
     suspend fun signOut(): Result<Unit>
 }
 
@@ -55,6 +59,30 @@ class FirebaseAuthRepository(
                                 email = user?.email ?: cleanEmail,
                                 displayName = user?.displayName?.takeIf { it.isNotBlank() }
                                     ?: BiometricAuth.defaultName(role),
+                                role = role,
+                                firebaseUid = user?.uid,
+                                isDemo = false
+                            )
+                        )
+                    )
+                }
+                .addOnFailureListener { exception ->
+                    continuation.resume(Result.failure(IllegalArgumentException(firebaseMessage(exception))))
+                }
+        }
+    }
+
+    override suspend fun signInWithGoogle(idToken: String, role: Role): Result<AuthUser> {
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        return suspendCancellableCoroutine { continuation ->
+            auth.signInWithCredential(credential)
+                .addOnSuccessListener { result ->
+                    val user = result.user
+                    continuation.resume(
+                        Result.success(
+                            AuthUser(
+                                email = user?.email ?: "googleuser@nuba.com",
+                                displayName = user?.displayName ?: BiometricAuth.defaultName(role),
                                 role = role,
                                 firebaseUid = user?.uid,
                                 isDemo = false
@@ -111,6 +139,30 @@ class FirebaseAuthRepository(
         return Result.success(Unit)
     }
 
+    override suspend fun signInWithFacebook(token: String, role: Role): Result<AuthUser> {
+        val credential = FacebookAuthProvider.getCredential(token)
+        return suspendCancellableCoroutine { continuation ->
+            auth.signInWithCredential(credential)
+                .addOnSuccessListener { result ->
+                    val user = result.user
+                    continuation.resume(
+                        Result.success(
+                            AuthUser(
+                                email = user?.email ?: "fbuser@nuba.com",
+                                displayName = user?.displayName ?: BiometricAuth.defaultName(role),
+                                role = role,
+                                firebaseUid = user?.uid,
+                                isDemo = false
+                            )
+                        )
+                    )
+                }
+                .addOnFailureListener { exception ->
+                    continuation.resume(Result.failure(IllegalArgumentException(firebaseMessage(exception))))
+                }
+        }
+    }
+
     private fun firebaseMessage(error: Exception): String {
         val raw = error.message.orEmpty()
         return when {
@@ -146,4 +198,12 @@ class DemoAuthRepository : AuthRepository {
     }
 
     override suspend fun signOut(): Result<Unit> = Result.success(Unit)
+
+    override suspend fun signInWithFacebook(token: String, role: Role): Result<AuthUser> {
+        return Result.success(AuthUser("fb-demo@nuba.com", "FB Demo User", role, null, true))
+    }
+
+    override suspend fun signInWithGoogle(idToken: String, role: Role): Result<AuthUser> {
+        return Result.success(AuthUser("google-demo@nuba.com", "Google Demo User", role, null, true))
+    }
 }

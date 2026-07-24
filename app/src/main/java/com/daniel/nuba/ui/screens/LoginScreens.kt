@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Login
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -19,12 +20,14 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.daniel.nuba.R
 import com.daniel.nuba.auth.BiometricAuth
 import com.daniel.nuba.auth.findFragmentActivity
 import com.daniel.nuba.data.AppState
@@ -171,7 +174,7 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: Logi
 
                 Spacer(Modifier.height(14.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    PrimaryButton(if (viewModel.authBusy) "Validando..." else "Acceder", modifier = Modifier.weight(1f), enabled = !viewModel.authBusy, icon = Icons.Outlined.Login) { 
+                    PrimaryButton(if (viewModel.authBusy) "Validando..." else "Acceder", modifier = Modifier.weight(1f), enabled = !viewModel.authBusy, icon = Icons.AutoMirrored.Outlined.Login) { 
                         viewModel.validatePasswordLogin(context, appState, onEnter)
                     }
                     IconButton(
@@ -187,7 +190,41 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: Logi
                     }
                 }
 
-                Spacer(Modifier.height(10.dp))
+                // Social Login justo debajo de Acceder
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.White.copy(.1f))
+                    Text("  o entra con  ", color = NubaMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = Color.White.copy(.1f))
+                }
+                Spacer(Modifier.height(14.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { viewModel.loginWithGoogle(context, appState, onEnter) },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(.12f))
+                    ) {
+                        Icon(painterResource(R.drawable.ic_google), null, modifier = Modifier.size(17.dp), tint = Color.Unspecified)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Google", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = { viewModel.loginWithFacebook(context, appState, onEnter) },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(.12f))
+                    ) {
+                        Icon(painterResource(R.drawable.ic_facebook), null, modifier = Modifier.size(17.dp), tint = Color.Unspecified)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Facebook", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
                 BiometricCompactHint(
                     enabled = viewModel.biometricEnabled,
                     available = viewModel.biometricAvailable,

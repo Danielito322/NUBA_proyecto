@@ -159,8 +159,9 @@ fun RegistroScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: L
                 Spacer(Modifier.height(10.dp))
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                    val context = LocalContext.current
                     OutlinedButton(
-                        onClick = { appState.toast = "Próximamente: Registro con Google" },
+                        onClick = { viewModel.loginWithGoogle(context, appState, onEnter) },
                         modifier = Modifier.weight(1f).height(50.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
@@ -177,7 +178,7 @@ fun RegistroScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: L
                     }
                     
                     OutlinedButton(
-                        onClick = { appState.toast = "Próximamente: Registro con Facebook" },
+                        onClick = { viewModel.loginWithFacebook(context, appState, onEnter) },
                         modifier = Modifier.weight(1f).height(50.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
