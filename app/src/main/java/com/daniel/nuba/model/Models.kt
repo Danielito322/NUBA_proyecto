@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LocalMall
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Reviews
 import androidx.compose.material.icons.outlined.SportsSoccer
@@ -121,6 +122,7 @@ data class NavItem(
 
 sealed class AppRoute(val title: String, val icon: ImageVector) {
     data object Login : AppRoute("Login", Icons.Outlined.Person)
+    data object Register : AppRoute("Registro", Icons.Outlined.PersonAdd)
     data object Home : AppRoute("Inicio", Icons.Outlined.Home)
     data object Explore : AppRoute("Explorar", Icons.Outlined.Explore)
     data object Detail : AppRoute("Detalle", Icons.Outlined.BusinessCenter)

@@ -7,17 +7,29 @@ import androidx.compose.runtime.setValue
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import com.daniel.nuba.R
 import com.daniel.nuba.auth.BiometricAuth
 import com.daniel.nuba.auth.FirebaseAuthRepository
+import com.daniel.nuba.auth.findFragmentActivity
 import com.daniel.nuba.data.AppState
 import com.daniel.nuba.model.AppRoute
 import com.daniel.nuba.model.AuthUser
 import com.daniel.nuba.model.Role
+import com.facebook.CallbackManager
+import com.facebook.FacebookCallback
+import com.facebook.FacebookException
+import com.facebook.login.LoginManager
+import com.facebook.login.LoginResult
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class LoginViewModel : ViewModel() {
     private val authRepository = FirebaseAuthRepository()
+    val facebookCallbackManager = CallbackManager.Factory.create()
 
     var selectedRole by mutableStateOf(Role.CLIENTE)
     var email by mutableStateOf("")
@@ -100,7 +112,7 @@ class LoginViewModel : ViewModel() {
         }
     }
 
-    fun createFirebaseAccount(appState: AppState) {
+    fun createFirebaseAccount(appState: AppState, onSuccess: () -> Unit) {
         if (authBusy) return
         authBusy = true
         viewModelScope.launch {
@@ -112,6 +124,7 @@ class LoginViewModel : ViewModel() {
                 password = registerPassword
                 pendingEnableAfterPassword = user
                 appState.toast = "Cuenta creada en Firebase para ${user.role.title}"
+                onSuccess()
             }.onFailure {
                 appState.toast = it.message ?: "No se pudo crear la cuenta"
             }
@@ -214,6 +227,77 @@ class LoginViewModel : ViewModel() {
             viewModelScope.launch {
                 delay(460)
                 authenticateWithFingerprint(context, activity, appState, onEnter, automatic = true)
+            }
+        }
+    }
+
+    fun loginWithFacebook(context: Context, appState: AppState, onEnter: (AppRoute) -> Unit) {
+        if (authBusy) return
+        val activity = context.findFragmentActivity() ?: return
+        authBusy = true
+        
+        LoginManager.getInstance().registerCallback(facebookCallbackManager, object : FacebookCallback<LoginResult> {
+            override fun onSuccess(result: LoginResult) {
+                viewModelScope.launch {
+                    val authResult = authRepository.signInWithFacebook(result.accessToken.token, selectedRole)
+                    authBusy = false
+                    authResult.onSuccess { user ->
+                        onEnterWithRole(context, appState, onEnter, user.role, resolvedEmail = user.email, resolvedName = user.displayName)
+                    }.onFailure {
+                        appState.toast = "Firebase Error: ${it.message ?: "Error al vincular Facebook"}"
+                    }
+                }
+            }
+            override fun onCancel() {
+                authBusy = false
+                appState.toast = "Login Facebook cancelado"
+            }
+            override fun onError(error: FacebookException) {
+                authBusy = false
+                appState.toast = "Facebook SDK Error: ${error.message}"
+                android.util.Log.e("NUBA_AUTH", "Facebook Login Error", error)
+            }
+        })
+
+        LoginManager.getInstance().logInWithReadPermissions(activity, listOf("email", "public_profile"))
+    }
+
+    fun loginWithGoogle(context: Context, appState: AppState, onEnter: (AppRoute) -> Unit) {
+        if (authBusy) return
+        val activity = context.findFragmentActivity() ?: return
+        authBusy = true
+
+        viewModelScope.launch {
+            try {
+                val credentialManager = CredentialManager.create(context)
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(context.getString(R.string.default_web_client_id))
+                    .build()
+
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+
+                val result = credentialManager.getCredential(activity, request)
+                val credential = result.credential
+
+                if (credential is GoogleIdTokenCredential) {
+                    val authResult: Result<AuthUser> = authRepository.signInWithGoogle(credential.idToken, selectedRole)
+                    authBusy = false
+                    authResult.onSuccess { user: AuthUser ->
+                        onEnterWithRole(context, appState, onEnter, user.role, resolvedEmail = user.email, resolvedName = user.displayName)
+                    }.onFailure {
+                        appState.toast = "Firebase Error: ${it.message ?: "Error desconocido"}"
+                    }
+                } else {
+                    authBusy = false
+                    appState.toast = "Credencial no válida: ${credential::class.java.simpleName}"
+                }
+            } catch (e: Exception) {
+                authBusy = false
+                appState.toast = "Google Error (${e.javaClass.simpleName}): ${e.message}"
+                android.util.Log.e("NUBA_AUTH", "Google Sign-In Error", e)
             }
         }
     }

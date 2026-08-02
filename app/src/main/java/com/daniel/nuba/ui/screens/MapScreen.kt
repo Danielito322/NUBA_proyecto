@@ -40,7 +40,7 @@ fun MapScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: Map
 
     MobileScaffold(appState, AppRoute.Map, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Puno, Perú", "Mapa de locales", "Google Maps nativo con categorías y locales disponibles.", Icons.Outlined.LocationOn) {} }
+            item { ScreenHeader("Puno, Perú", "Mapa de locales", "Google Maps nativo con categorías y locales disponibles.", back = { onNavigate(AppRoute.Home) }) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     Category.entries.forEach { category ->

@@ -31,7 +31,7 @@ import com.daniel.nuba.ui.theme.*
 fun ProviderScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ProviderAdminViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Provider, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Proveedor", "Mi negocio", "Gestiona reservas, local, horarios, productos y reseñas.") }
+            item { ScreenHeader("Proveedor", "Mi negocio", "Gestiona reservas, local, horarios, productos y reseñas.", back = { onNavigate(AppRoute.Login) }) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("Resumen","Local","Horarios","Productos","Reseñas","QR").forEach { item ->
@@ -182,7 +182,7 @@ private fun ProviderQr(appState: AppState, viewModel: ProviderAdminViewModel) {
 fun AdminScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ProviderAdminViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Admin, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Administrador", "Panel general", "Controla negocios, usuarios, reportes y reseñas.") }
+            item { ScreenHeader("Administrador", "Panel general", "Controla negocios, usuarios, reportes y reseñas.", back = { onNavigate(AppRoute.Login) }) }
             item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Aprobaciones","Negocios","Usuarios","Reseñas").forEach { FilterButton(it, it == viewModel.adminTab, Modifier.weight(1f)) { viewModel.adminTab = it } } } }
             when(viewModel.adminTab){
                 "Aprobaciones" -> item { AdminApprovals(appState, viewModel) }

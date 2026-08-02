@@ -75,7 +75,7 @@ fun ExploreScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel:
     MobileScaffold(appState, AppRoute.Explore, onNavigate) {
         val filtered = viewModel.filteredVenues(appState)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Explorar", appState.selectedCategory.label, "Filtra locales, revisa fotos, tienda y disponibilidad.") }
+            item { ScreenHeader("Explorar", appState.selectedCategory.label, "Filtra locales, revisa fotos, tienda y disponibilidad.", back = { onNavigate(AppRoute.Home) }) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     Category.entries.forEach { category -> CategoryPill(category, category == appState.selectedCategory) { appState.selectedCategory = category } }
@@ -176,7 +176,7 @@ fun ShopScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: Cl
     val products = viewModel.getProducts(appState, venue.id)
     MobileScaffold(appState, AppRoute.Shop, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Tienda del local", venue.name, "Productos propios del negocio elegido.", Icons.Outlined.ShoppingCart) { onNavigate(AppRoute.Cart) } }
+            item { ScreenHeader("Tienda del local", venue.name, "Productos propios del negocio elegido.", Icons.Outlined.ShoppingCart, onAction = { onNavigate(AppRoute.Cart) }, back = { onNavigate(AppRoute.Detail) }) }
             if (products.isEmpty()) item { EmptyState("Sin productos", "Este negocio no tiene tienda por ahora.", Icons.Outlined.Storefront) }
             items(products) { ProductRow(product = it, appState = appState) }
         }
@@ -254,7 +254,7 @@ fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel:
 
     MobileScaffold(appState, AppRoute.Profile, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Tu cuenta", "Perfil", "Preferencias, historial y soporte.", Icons.Outlined.Logout) { onNavigate(AppRoute.Login) } }
+            item { ScreenHeader("Tu cuenta", "Perfil", "Preferencias, historial y soporte.", Icons.Outlined.Logout, onAction = { onNavigate(AppRoute.Login) }, back = { onNavigate(AppRoute.Home) }) }
             item {
                 GlassCard {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {

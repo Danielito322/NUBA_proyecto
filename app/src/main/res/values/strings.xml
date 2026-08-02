@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">NUBA</string>
+    <string name="facebook_app_id">1332317258605040</string>
+    <string name="fb_login_protocol_scheme">fb1332317258605040</string>
+    <string name="facebook_client_token">10f21514ba61f046035eb73b1847412e</string> <!-- Usando el secreto como token temporal si no se tiene el real, o simplemente el secreto si es lo que se tiene -->
+    <string name="default_web_client_id">691624229077-le54k8bbpptpa04h98n52n27l5lfhqqo.apps.googleusercontent.com</string>
 </resources>

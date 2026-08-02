@@ -1,6 +1,8 @@
 package com.daniel.nuba
 
 import android.os.Bundle
+import android.content.Intent
+import androidx.activity.viewModels
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.*
@@ -9,8 +11,11 @@ import com.daniel.nuba.data.AppState
 import com.daniel.nuba.model.AppRoute
 import com.daniel.nuba.ui.screens.*
 import com.daniel.nuba.ui.theme.NubaTheme
+import com.daniel.nuba.ui.viewmodels.LoginViewModel
 
 class MainActivity : FragmentActivity() {
+    private val loginViewModel: LoginViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -19,7 +24,8 @@ class MainActivity : FragmentActivity() {
                 var route by remember { mutableStateOf<AppRoute>(AppRoute.Login) }
                 fun navigate(target: AppRoute) { route = target }
                 when (route) {
-                    AppRoute.Login -> LoginScreen(appState, ::navigate)
+                    AppRoute.Login -> LoginScreen(appState, ::navigate, loginViewModel)
+                    AppRoute.Register -> RegistroScreen(appState, ::navigate, loginViewModel)
                     AppRoute.Home -> HomeScreen(appState, ::navigate)
                     AppRoute.Explore -> ExploreScreen(appState, ::navigate)
                     AppRoute.Detail -> DetailScreen(appState, ::navigate)
@@ -37,5 +43,10 @@ class MainActivity : FragmentActivity() {
                 }
             }
         }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        loginViewModel.facebookCallbackManager.onActivityResult(requestCode, resultCode, data)
+        super.onActivityResult(requestCode, resultCode, data)
     }
 }

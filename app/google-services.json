@@ -12,7 +12,20 @@
           "package_name": "com.daniel.nuba"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "691624229077-j07rbklj36ut3sjrhl6n90somue7nbkd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.daniel.nuba",
+            "certificate_hash": "927466985dacc2e1af87516043c85c2eaea6c6f6"
+          }
+        },
+        {
+          "client_id": "691624229077-le54k8bbpptpa04h98n52n27l5lfhqqo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB4EuGjgnBwAmo2XDkEKHS-RE22Q_Ik1LA"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "691624229077-le54k8bbpptpa04h98n52n27l5lfhqqo.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
