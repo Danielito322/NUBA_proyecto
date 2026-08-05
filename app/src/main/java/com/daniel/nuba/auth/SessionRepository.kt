@@ -14,6 +14,11 @@ interface SessionRepository {
     fun getLastRole(): Role?
     fun saveLastRole(role: Role)
     fun hasAnyBiometricEnabled(): Boolean
+
+    // Nuevos métodos para rastrear al último usuario sin mezclar con biometría
+    fun saveLastUsedUser(role: Role, email: String, name: String)
+    fun getLastUsedEmail(role: Role): String
+    fun getLastUsedName(role: Role): String
 }
 
 class SharedPreferencesSessionRepository(context: Context) : SessionRepository {
@@ -72,4 +77,17 @@ class SharedPreferencesSessionRepository(context: Context) : SessionRepository {
     }
 
     override fun hasAnyBiometricEnabled(): Boolean = Role.entries.any { isBiometricEnabled(it) }
+
+    override fun saveLastUsedUser(role: Role, email: String, name: String) {
+        prefs.edit()
+            .putString(roleKey(role, "last_email"), email)
+            .putString(roleKey(role, "last_name"), name)
+            .apply()
+    }
+
+    override fun getLastUsedEmail(role: Role): String =
+        prefs.getString(roleKey(role, "last_email"), "") ?: ""
+
+    override fun getLastUsedName(role: Role): String =
+        prefs.getString(roleKey(role, "last_name"), "") ?: ""
 }

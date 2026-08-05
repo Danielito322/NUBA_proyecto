@@ -62,6 +62,7 @@ fun SupabaseLoginScreen(
                 is LoginUiEvent.Navigate -> {
                     appState.role = uiState.selectedRole
                     appState.userEmail = uiState.email
+                    // Obtenemos el nombre del usuario real que acaba de entrar
                     appState.userName = BiometricAuth.savedName(context, uiState.selectedRole).ifBlank { "Usuario" }
                     onNavigate(event.route)
                 }

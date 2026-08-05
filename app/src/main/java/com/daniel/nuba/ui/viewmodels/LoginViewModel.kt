@@ -71,13 +71,15 @@ class LoginViewModel(
             sessionRepo = SharedPreferencesSessionRepository(context)
         }
         val repo = sessionRepo!!
-        val initialRole = repo.getLastRole()?.takeIf { repo.isBiometricEnabled(it) } ?: Role.CLIENTE
+        val initialRole = repo.getLastRole() ?: Role.CLIENTE
+        val email = repo.getLastUsedEmail(initialRole)
+        val isBiometricEnabledForThisUser = repo.isBiometricEnabled(initialRole) && repo.getSavedEmail(initialRole) == email
         
         _uiState.value = _uiState.value.copy(
             selectedRole = initialRole,
-            email = repo.getSavedEmail(initialRole),
-            password = if (repo.isBiometricEnabled(initialRole)) BiometricAuth.defaultPassword(initialRole) else "",
-            biometricEnabled = repo.isBiometricEnabled(initialRole),
+            email = email,
+            password = if (isBiometricEnabledForThisUser) BiometricAuth.defaultPassword(initialRole) else "",
+            biometricEnabled = isBiometricEnabledForThisUser,
             biometricAvailable = BiometricAuth.canAuthenticate(context),
             biometricStatus = BiometricAuth.statusMessage(context)
         )
@@ -85,16 +87,26 @@ class LoginViewModel(
 
     fun onRoleSelected(role: Role) {
         val repo = sessionRepo ?: return
+        val email = repo.getLastUsedEmail(role)
+        val isBiometricEnabledForThisUser = repo.isBiometricEnabled(role) && repo.getSavedEmail(role) == email
+        
         _uiState.value = _uiState.value.copy(
             selectedRole = role,
-            email = repo.getSavedEmail(role),
-            password = if (repo.isBiometricEnabled(role)) BiometricAuth.defaultPassword(role) else "",
-            biometricEnabled = repo.isBiometricEnabled(role)
+            email = email,
+            password = if (isBiometricEnabledForThisUser) BiometricAuth.defaultPassword(role) else "",
+            biometricEnabled = isBiometricEnabledForThisUser
         )
     }
 
     fun onEmailChange(email: String) {
-        _uiState.value = _uiState.value.copy(email = email)
+        val repo = sessionRepo ?: return
+        val isBiometricForThisEmail = repo.isBiometricEnabled(_uiState.value.selectedRole) && 
+                                     repo.getSavedEmail(_uiState.value.selectedRole) == email.trim()
+        
+        _uiState.value = _uiState.value.copy(
+            email = email,
+            biometricEnabled = isBiometricForThisEmail
+        )
     }
 
     fun onPasswordChange(password: String) {
@@ -178,6 +190,7 @@ class LoginViewModel(
     private fun navigateToRole(role: Role, user: AuthUser, fromBiometric: Boolean = false) {
         val repo = sessionRepo ?: return
         repo.saveLastRole(role)
+        repo.saveLastUsedUser(role, user.email, user.displayName)
         
         viewModelScope.launch {
             val route = when (role) {
@@ -204,7 +217,9 @@ class LoginViewModel(
             
             result.onSuccess { user ->
                 val repo = sessionRepo ?: return@onSuccess
-                if (!repo.isBiometricEnabled(user.role) && state.biometricAvailable) {
+                val isDifferentUser = repo.isBiometricEnabled(user.role) && repo.getSavedEmail(user.role) != user.email
+                
+                if ((!repo.isBiometricEnabled(user.role) || isDifferentUser) && state.biometricAvailable) {
                     _events.send(LoginUiEvent.ShowToast("¡Bienvenido, ${user.displayName}!"))
                     _uiState.value = _uiState.value.copy(pendingEnableAfterPassword = user)
                 } else {
