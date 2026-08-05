@@ -38,7 +38,8 @@ data class AuthUser(
     val uid: String? = null,
     val isDemo: Boolean = false,
     val photoUrl: String? = null,
-    val bio: String? = null
+    val bio: String? = null,
+    val refreshToken: String? = null
 )
 
 data class Venue(

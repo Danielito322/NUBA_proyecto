@@ -1,6 +1,7 @@
 package com.daniel.nuba.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +27,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.daniel.nuba.auth.findFragmentActivity
+import com.daniel.nuba.auth.BiometricAuth
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.daniel.nuba.data.AppState
@@ -40,6 +43,7 @@ import com.daniel.nuba.ui.theme.NubaText
 import com.daniel.nuba.ui.theme.NubaViolet
 import com.daniel.nuba.ui.viewmodels.LoginViewModel
 import com.daniel.nuba.ui.viewmodels.LoginUiEvent
+import androidx.compose.material.icons.outlined.Fingerprint
 
 @Composable
 fun SupabaseLoginScreen(
@@ -49,18 +53,55 @@ fun SupabaseLoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val activity = context.findFragmentActivity()
 
     LaunchedEffect(Unit) {
         viewModel.init(context)
         viewModel.events.collect { event ->
             when (event) {
-                is LoginUiEvent.Navigate -> onNavigate(event.route)
+                is LoginUiEvent.Navigate -> {
+                    appState.role = uiState.selectedRole
+                    appState.userEmail = uiState.email
+                    appState.userName = BiometricAuth.savedName(context, uiState.selectedRole).ifBlank { "Usuario" }
+                    onNavigate(event.route)
+                }
                 is LoginUiEvent.ShowToast -> appState.toast = event.message
+                is LoginUiEvent.TriggerBiometric -> {
+                    activity?.let {
+                        BiometricAuth.authenticate(
+                            activity = it,
+                            title = event.title,
+                            subtitle = event.subtitle,
+                            description = event.description,
+                            onSuccess = event.onSuccess,
+                            onError = { msg -> appState.toast = msg }
+                        )
+                    }
+                }
                 else -> {}
             }
         }
     }
-    // createFirebaseAccount()
+
+    if (uiState.pendingEnableAfterPassword != null) {
+        val user = uiState.pendingEnableAfterPassword!!
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissPendingBiometric() },
+            title = { Text("Acceso Rápido") },
+            text = { Text("¿Deseas activar el ingreso con huella dactilar para tu próxima visita?") },
+            confirmButton = {
+                TextButton(onClick = { viewModel.promptFingerprintLink(user, afterSuccess = true) }) {
+                    Text("Activar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissPendingBiometric() }) {
+                    Text("Ahora no")
+                }
+            }
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -125,12 +166,34 @@ fun SupabaseLoginScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
 
-                PrimaryButton(
-                    text = if (uiState.authBusy) "Entrando..." else "Entrar",
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.authBusy
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    viewModel.validatePasswordLogin()
+                    PrimaryButton(
+                        text = if (uiState.authBusy) "Entrando..." else "Entrar",
+                        modifier = Modifier.weight(1f),
+                        enabled = !uiState.authBusy
+                    ) {
+                        viewModel.validatePasswordLogin()
+                    }
+
+                    if (uiState.biometricEnabled && uiState.biometricAvailable) {
+                        IconButton(
+                            onClick = { viewModel.authenticateWithFingerprint() },
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(NubaCyan.copy(alpha = 0.1f), RoundedCornerShape(16.dp))
+                                .border(1.dp, NubaCyan.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Fingerprint,
+                                contentDescription = "Huella",
+                                tint = NubaCyan
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

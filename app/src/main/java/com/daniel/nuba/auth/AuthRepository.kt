@@ -23,6 +23,7 @@ interface AuthRepository {
     suspend fun register(email: String, password: String, role: Role, name: String, username: String): Result<AuthUser>
     suspend fun signInWithFacebook(token: String, role: Role): Result<AuthUser>
     suspend fun signInWithGoogle(idToken: String, role: Role): Result<AuthUser>
+    suspend fun signInWithRefreshToken(refreshToken: String, role: Role): Result<AuthUser>
     suspend fun signOut(): Result<Unit>
 }
 
@@ -42,25 +43,18 @@ class SupabaseAuthRepository : AuthRepository {
 
     override suspend fun signIn(email: String, password: String, role: Role): Result<AuthUser> {
         val cleanEmail = email.trim()
-        if (BiometricAuth.credentialIsValid(role, cleanEmail, password)) {
-            return Result.success(
-                AuthUser(
-                    email = BiometricAuth.defaultEmail(role),
-                    displayName = BiometricAuth.defaultName(role),
-                    role = role,
-                    uid = null,
-                    isDemo = true
-                )
-            )
-        }
-
+        Log.d(TAG, "Iniciando signIn para: $cleanEmail")
         return try {
             auth.signInWith(Email) {
                 this.email = cleanEmail
                 this.password = password
             }
-            fetchProfile(cleanEmail, role)
+            Log.d(TAG, "signInWith exitoso, obteniendo sesión")
+            val session = auth.currentSessionOrNull()
+            Log.d(TAG, "Sesión obtenida: ${session != null}, refresh token: ${session?.refreshToken != null}")
+            fetchProfile(cleanEmail, role, session?.refreshToken)
         } catch (e: Exception) {
+            Log.e(TAG, "Error en signIn: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -106,9 +100,12 @@ class SupabaseAuthRepository : AuthRepository {
         }
     }
 
-    private suspend fun fetchProfile(email: String, role: Role): Result<AuthUser> {
+    private suspend fun fetchProfile(email: String, role: Role, refreshToken: String? = null): Result<AuthUser> {
+        Log.d(TAG, "fetchProfile iniciado para $email")
         return try {
-            val user = auth.currentUserOrNull() ?: throw Exception("Usuario no encontrado")
+            val user = auth.currentUserOrNull() ?: throw Exception("Usuario no encontrado en sesión")
+            Log.d(TAG, "Usuario en sesión: ${user.id}")
+            
             val profile = client.postgrest["profiles"]
                 .select {
                     filter {
@@ -117,14 +114,29 @@ class SupabaseAuthRepository : AuthRepository {
                 }
                 .decodeSingle<SupabaseProfile>()
             
+            Log.d(TAG, "Perfil decodificado con éxito: ${profile.username}, rol: ${profile.role}")
+            
             Result.success(AuthUser(
                 email = email,
                 displayName = profile.full_name,
                 role = Role.valueOf(profile.role),
                 uid = profile.id,
                 photoUrl = profile.photo_url,
-                bio = profile.bio
+                bio = profile.bio,
+                refreshToken = refreshToken
             ))
+        } catch (e: Exception) {
+            Log.e(TAG, "Error en fetchProfile: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun signInWithRefreshToken(refreshToken: String, role: Role): Result<AuthUser> {
+        return try {
+            auth.refreshSession(refreshToken)
+            val user = auth.currentUserOrNull() ?: throw Exception("Sesión inválida")
+            val newSession = auth.currentSessionOrNull()
+            fetchProfile(user.email ?: "", role, newSession?.refreshToken)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -180,5 +192,9 @@ class DemoAuthRepository : AuthRepository {
 
     override suspend fun signInWithGoogle(idToken: String, role: Role): Result<AuthUser> {
         return Result.success(AuthUser("google-demo@nuba.com", "Google Demo User", role, null, true))
+    }
+
+    override suspend fun signInWithRefreshToken(refreshToken: String, role: Role): Result<AuthUser> {
+        return Result.failure(Exception("Demo no soporta Refresh Token"))
     }
 }

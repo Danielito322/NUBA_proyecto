@@ -76,7 +76,7 @@ class LoginViewModel(
         _uiState.value = _uiState.value.copy(
             selectedRole = initialRole,
             email = repo.getSavedEmail(initialRole),
-            password = BiometricAuth.defaultPassword(initialRole),
+            password = if (repo.isBiometricEnabled(initialRole)) BiometricAuth.defaultPassword(initialRole) else "",
             biometricEnabled = repo.isBiometricEnabled(initialRole),
             biometricAvailable = BiometricAuth.canAuthenticate(context),
             biometricStatus = BiometricAuth.statusMessage(context)
@@ -88,7 +88,7 @@ class LoginViewModel(
         _uiState.value = _uiState.value.copy(
             selectedRole = role,
             email = repo.getSavedEmail(role),
-            password = BiometricAuth.defaultPassword(role),
+            password = if (repo.isBiometricEnabled(role)) BiometricAuth.defaultPassword(role) else "",
             biometricEnabled = repo.isBiometricEnabled(role)
         )
     }
@@ -156,7 +156,11 @@ class LoginViewModel(
                 
                 result.onSuccess { user ->
                     Log.d(TAG, "Registro exitoso: ${user.email}")
-                    _events.send(LoginUiEvent.ShowToast("¡Cuenta creada con éxito!"))
+                    _uiState.value = _uiState.value.copy(
+                        email = state.registerEmail,
+                        password = state.registerPassword
+                    )
+                    _events.send(LoginUiEvent.ShowToast("¡Cuenta creada con éxito! Ya puedes entrar."))
                     // Redirigir a Login
                     _events.send(LoginUiEvent.Navigate(AppRoute.Login))
                 }.onFailure {
@@ -181,7 +185,10 @@ class LoginViewModel(
                 Role.PROVEEDOR -> AppRoute.Provider
                 Role.ADMIN -> AppRoute.Admin
             }
-            _events.send(LoginUiEvent.ShowToast(if (fromBiometric) "Huella validada: ingreso como ${role.title}" else "Ingreso como ${role.title}"))
+            _events.send(LoginUiEvent.ShowToast(
+                if (fromBiometric) "Huella validada. ¡Hola de nuevo!" 
+                else "¡Bienvenido de nuevo, ${user.displayName}!"
+            ))
             _events.send(LoginUiEvent.Navigate(route))
         }
     }
@@ -198,6 +205,7 @@ class LoginViewModel(
             result.onSuccess { user ->
                 val repo = sessionRepo ?: return@onSuccess
                 if (!repo.isBiometricEnabled(user.role) && state.biometricAvailable) {
+                    _events.send(LoginUiEvent.ShowToast("¡Bienvenido, ${user.displayName}!"))
                     _uiState.value = _uiState.value.copy(pendingEnableAfterPassword = user)
                 } else {
                     navigateToRole(user.role, user)
@@ -217,6 +225,12 @@ class LoginViewModel(
             return
         }
         
+        val refreshToken = repo.getRefreshToken(state.selectedRole)
+        if (refreshToken == null) {
+            if (!automatic) viewModelScope.launch { _events.send(LoginUiEvent.ShowToast("Sesión expirada. Ingresa con contraseña.")) }
+            return
+        }
+
         if (!state.biometricAvailable) {
             viewModelScope.launch { _events.send(LoginUiEvent.ShowToast(state.biometricStatus)) }
             return
@@ -228,7 +242,19 @@ class LoginViewModel(
                 subtitle = "${state.selectedRole.title}: ${repo.getSavedEmail(state.selectedRole)}",
                 description = "Confirma tu identidad con la huella registrada en este teléfono.",
                 onSuccess = { 
-                    navigateToRole(state.selectedRole, AuthUser(repo.getSavedEmail(state.selectedRole), repo.getSavedName(state.selectedRole), state.selectedRole), fromBiometric = true)
+                    viewModelScope.launch {
+                        _uiState.value = _uiState.value.copy(authBusy = true)
+                        val result = authRepository.signInWithRefreshToken(refreshToken, state.selectedRole)
+                        _uiState.value = _uiState.value.copy(authBusy = false)
+                        
+                        result.onSuccess { user ->
+                            // Actualizar token si cambió
+                            sessionRepo?.saveBiometricConfig(user.role, user.email, user.displayName, user.refreshToken)
+                            navigateToRole(user.role, user, fromBiometric = true)
+                        }.onFailure {
+                            _events.send(LoginUiEvent.ShowToast("Sesión inválida. Por favor usa tu contraseña."))
+                        }
+                    }
                 }
             ))
         }
@@ -247,7 +273,7 @@ class LoginViewModel(
                 subtitle = "${user.role.title}: ${user.email}",
                 description = "NUBA usará la huella registrada en este teléfono para próximos ingresos.",
                 onSuccess = {
-                    sessionRepo?.saveBiometricConfig(user.role, user.email, user.displayName)
+                    sessionRepo?.saveBiometricConfig(user.role, user.email, user.displayName, user.refreshToken)
                     _uiState.value = _uiState.value.copy(
                         biometricEnabled = true,
                         pendingEnableAfterPassword = null

@@ -6,10 +6,11 @@ import com.daniel.nuba.model.Role
 
 interface SessionRepository {
     fun isBiometricEnabled(role: Role): Boolean
-    fun saveBiometricConfig(role: Role, email: String, name: String)
+    fun saveBiometricConfig(role: Role, email: String, name: String, refreshToken: String? = null)
     fun disableBiometric(role: Role)
     fun getSavedEmail(role: Role): String
     fun getSavedName(role: Role): String
+    fun getRefreshToken(role: Role): String?
     fun getLastRole(): Role?
     fun saveLastRole(role: Role)
     fun hasAnyBiometricEnabled(): Boolean
@@ -27,13 +28,15 @@ class SharedPreferencesSessionRepository(context: Context) : SessionRepository {
     override fun isBiometricEnabled(role: Role): Boolean =
         prefs.getBoolean(roleKey(role, "enabled"), false)
 
-    override fun saveBiometricConfig(role: Role, email: String, name: String) {
-        prefs.edit()
-            .putBoolean(roleKey(role, "enabled"), true)
-            .putString(roleKey(role, "email"), email)
-            .putString(roleKey(role, "name"), name)
-            .putString(KEY_LAST_ROLE, role.name)
-            .apply()
+    override fun saveBiometricConfig(role: Role, email: String, name: String, refreshToken: String?) {
+        prefs.edit().apply {
+            putBoolean(roleKey(role, "enabled"), true)
+            putString(roleKey(role, "email"), email)
+            putString(roleKey(role, "name"), name)
+            refreshToken?.let { putString(roleKey(role, "refresh_token"), it) }
+            putString(KEY_LAST_ROLE, role.name)
+            apply()
+        }
     }
 
     override fun disableBiometric(role: Role) {
@@ -41,6 +44,7 @@ class SharedPreferencesSessionRepository(context: Context) : SessionRepository {
             .remove(roleKey(role, "enabled"))
             .remove(roleKey(role, "email"))
             .remove(roleKey(role, "name"))
+            .remove(roleKey(role, "refresh_token"))
         
         if (prefs.getString(KEY_LAST_ROLE, null) == role.name) {
             val next = Role.entries.firstOrNull { it != role && isBiometricEnabled(it) }
@@ -50,10 +54,13 @@ class SharedPreferencesSessionRepository(context: Context) : SessionRepository {
     }
 
     override fun getSavedEmail(role: Role): String =
-        prefs.getString(roleKey(role, "email"), BiometricAuth.defaultEmail(role)) ?: BiometricAuth.defaultEmail(role)
+        prefs.getString(roleKey(role, "email"), "") ?: ""
 
     override fun getSavedName(role: Role): String =
-        prefs.getString(roleKey(role, "name"), BiometricAuth.defaultName(role)) ?: BiometricAuth.defaultName(role)
+        prefs.getString(roleKey(role, "name"), "") ?: ""
+
+    override fun getRefreshToken(role: Role): String? =
+        prefs.getString(roleKey(role, "refresh_token"), null)
 
     override fun getLastRole(): Role? {
         val raw = prefs.getString(KEY_LAST_ROLE, null)
