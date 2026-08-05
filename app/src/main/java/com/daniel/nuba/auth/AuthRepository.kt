@@ -91,7 +91,7 @@ class SupabaseAuthRepository : AuthRepository {
                 role = role.name
             )
             
-            client.postgrest["profiles"].insert(profile)
+            client.postgrest["profiles"].upsert(profile)
             
             Result.success(AuthUser(
                 email = cleanEmail,
