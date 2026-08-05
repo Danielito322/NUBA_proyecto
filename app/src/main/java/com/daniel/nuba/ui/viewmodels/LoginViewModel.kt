@@ -135,6 +135,11 @@ class LoginViewModel(
             return
         }
 
+        if (state.registerPassword.length < 8) {
+            viewModelScope.launch { _events.send(LoginUiEvent.ShowToast("La contraseña debe tener al menos 8 caracteres")) }
+            return
+        }
+
         _uiState.value = _uiState.value.copy(authBusy = true)
         Log.d(TAG, "Iniciando corrutina de registro para ${state.registerEmail}")
         

@@ -12,6 +12,8 @@ import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -106,7 +108,8 @@ fun SupabaseLoginScreen(
                     value = uiState.email,
                     onValueChange = { viewModel.onEmailChange(it) },
                     icon = Icons.Outlined.Email,
-                    keyboardType = KeyboardType.Email
+                    keyboardType = KeyboardType.Email,
+                    isError = uiState.email.isNotEmpty() && !android.util.Patterns.EMAIL_ADDRESS.matcher(uiState.email).matches()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -231,7 +234,8 @@ fun SupabaseRegisterScreen(
                     value = uiState.registerEmail,
                     onValueChange = { viewModel.onRegisterEmailChange(it) },
                     icon = Icons.Outlined.Email,
-                    keyboardType = KeyboardType.Email
+                    keyboardType = KeyboardType.Email,
+                    isError = uiState.registerEmail.isNotEmpty() && !android.util.Patterns.EMAIL_ADDRESS.matcher(uiState.registerEmail).matches()
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -242,7 +246,8 @@ fun SupabaseRegisterScreen(
                     onValueChange = { viewModel.onRegisterPasswordChange(it) },
                     icon = Icons.Outlined.Lock,
                     keyboardType = KeyboardType.Password,
-                    isPassword = true
+                    isPassword = true,
+                    isError = uiState.registerPassword.isNotEmpty() && uiState.registerPassword.length < 8
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -255,7 +260,7 @@ fun SupabaseRegisterScreen(
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Role.entries.forEach { role ->
+                    Role.entries.filter { it != Role.ADMIN }.forEach { role ->
                         val active = uiState.selectedRole == role
                         FilterChip(
                             selected = active,
@@ -293,16 +298,31 @@ fun AuthField(
     onValueChange: (String) -> Unit,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     keyboardType: KeyboardType,
-    isPassword: Boolean = false
+    isPassword: Boolean = false,
+    isError: Boolean = false
 ) {
+    var passwordVisible by remember { mutableStateOf(false) }
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
         leadingIcon = { Icon(icon, null) },
+        trailingIcon = if (isPassword) {
+            {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(
+                        imageVector = if (passwordVisible) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                        contentDescription = if (passwordVisible) "Ocultar" else "Mostrar",
+                        tint = if (passwordVisible) NubaCyan else Color.White.copy(alpha = 0.5f)
+                    )
+                }
+            }
+        } else null,
         singleLine = true,
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        isError = isError,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
@@ -313,7 +333,11 @@ fun AuthField(
             focusedLabelColor = NubaCyan,
             unfocusedLabelColor = Color.White.copy(alpha = 0.6f),
             focusedLeadingIconColor = NubaCyan,
-            unfocusedLeadingIconColor = Color.White.copy(alpha = 0.5f)
+            unfocusedLeadingIconColor = Color.White.copy(alpha = 0.5f),
+            errorBorderColor = Color.Red.copy(alpha = 0.8f),
+            errorLabelColor = Color.Red.copy(alpha = 0.8f),
+            errorLeadingIconColor = Color.Red.copy(alpha = 0.8f),
+            errorTrailingIconColor = Color.Red.copy(alpha = 0.8f)
         )
     )
 }
