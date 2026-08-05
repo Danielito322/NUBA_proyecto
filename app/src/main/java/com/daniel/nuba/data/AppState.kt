@@ -6,9 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.daniel.nuba.model.AdminRequest
 import com.daniel.nuba.model.Booking
-import com.daniel.nuba.model.CartItem
 import com.daniel.nuba.model.Category
-import com.daniel.nuba.model.Product
 import com.daniel.nuba.model.Review
 import com.daniel.nuba.model.Role
 import com.daniel.nuba.model.ScheduleSlot
@@ -32,8 +30,6 @@ class AppState {
     var userEmail by mutableStateOf("daniel@nuba.app")
 
     val venues = mutableStateListOf<Venue>()
-    val products = mutableStateListOf<Product>()
-    val cart = mutableStateListOf<CartItem>()
     val bookings = mutableStateListOf<Booking>()
     val reviews = mutableStateListOf<Review>()
     val requests = mutableStateListOf<AdminRequest>()
@@ -58,7 +54,7 @@ class AppState {
                     id = "arena-sur",
                     name = "Arena Sur Puno",
                     category = Category.DEPORTES,
-                    description = "Cancha de fútbol 6 con iluminación, vestidores, tienda del local y validación QR.",
+                    description = "Cancha de fútbol 6 con iluminación, vestidores y validación QR.",
                     address = "Jr. Los Incas, Puno",
                     distance = "1.2 km",
                     price = 78,
@@ -83,14 +79,14 @@ class AppState {
                     latitude = -15.8358,
                     longitude = -70.0298,
                     imageUrl = "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?auto=format&fit=crop&w=1200&q=80",
-                    services = listOf("Raquetas", "Duchas", "Tienda", "Cafetería"),
+                    services = listOf("Raquetas", "Duchas", "Cafetería"),
                     schedules = baseSchedule.map { it.copy() }.toMutableList()
                 ),
                 Venue(
                     id = "barber-studio",
                     name = "Studio Barber 360",
                     category = Category.BELLEZA,
-                    description = "Barbería moderna con reserva por hora, productos premium y atención personalizada.",
+                    description = "Barbería moderna con reserva por hora y atención personalizada.",
                     address = "Jr. Lima, Puno",
                     distance = "900 m",
                     price = 35,
@@ -99,7 +95,7 @@ class AppState {
                     latitude = -15.8389,
                     longitude = -70.0242,
                     imageUrl = "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=1200&q=80",
-                    services = listOf("Corte", "Barba", "Color", "Productos"),
+                    services = listOf("Corte", "Barba", "Color"),
                     schedules = baseSchedule.map { it.copy(open = "09:00", close = "21:00") }.toMutableList()
                 ),
                 Venue(
@@ -136,16 +132,6 @@ class AppState {
                 )
             )
         )
-        products.addAll(
-            listOf(
-                Product("balon-pro", "arena-sur", "Balón profesional", "Deportes", 59, 12, "https://images.unsplash.com/photo-1614632537197-38a17061c2bd?auto=format&fit=crop&w=900&q=80", "Balón cosido, ideal para fútbol rápido."),
-                Product("agua-pack", "arena-sur", "Pack de agua", "Bebidas", 12, 40, "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=900&q=80", "Seis botellas para el equipo."),
-                Product("raqueta", "nexo-padel", "Alquiler de raqueta", "Deportes", 18, 20, "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=900&q=80", "Raqueta profesional por reserva."),
-                Product("pomada", "barber-studio", "Pomada matte", "Belleza", 32, 18, "https://images.unsplash.com/photo-1621607512214-68297480165e?auto=format&fit=crop&w=900&q=80", "Fijación media para peinados naturales."),
-                Product("aceite-barba", "barber-studio", "Aceite para barba", "Belleza", 39, 8, "https://images.unsplash.com/photo-1581182800629-7d90925ad072?auto=format&fit=crop&w=900&q=80", "Hidratación y brillo suave."),
-                Product("combo-vr", "arcade-zone", "Combo VR + snack", "Entretenimiento", 25, 16, "https://images.unsplash.com/photo-1592478411213-6153e4ebc696?auto=format&fit=crop&w=900&q=80", "Complemento para experiencia gamer.")
-            )
-        )
         bookings.add(
             Booking(
                 id = "bk-001",
@@ -162,7 +148,7 @@ class AppState {
         reviews.addAll(
             listOf(
                 Review("r1", "arena-sur", "María Q.", 5, "La cancha estaba limpia y el QR agilizó el ingreso."),
-                Review("r2", "barber-studio", "Luis C.", 4, "Buena atención y productos disponibles."),
+                Review("r2", "barber-studio", "Luis C.", 4, "Buena atención y servicio rápido."),
                 Review("r3", "arcade-zone", "Ana P.", 5, "Ideal para ir con amigos, la reserva fue rápida.")
             )
         )
@@ -176,18 +162,9 @@ class AppState {
     }
 
     fun selectedVenue(): Venue = venues.firstOrNull { it.id == selectedVenueId } ?: venues.first()
-    fun venueProducts(venueId: String = selectedVenueId): List<Product> = products.filter { it.venueId == venueId }
     fun venueReviews(venueId: String = selectedVenueId): List<Review> = reviews.filter { it.venueId == venueId && it.status == "Publicada" }
 
     fun filteredVenues(): List<Venue> = venues.filter { it.category == selectedCategory && it.approved && it.status == "Activo" }
-
-    fun addToCart(product: Product) {
-        val existing = cart.firstOrNull { it.product.id == product.id }
-        if (existing == null) cart.add(CartItem(product, 1)) else existing.quantity++
-        toast = "Producto agregado al carrito"
-    }
-
-    fun cartTotal(): Int = cart.fold(0) { total, item -> total + (item.product.price * item.quantity) }
 
     fun createBooking(total: Int): Booking {
         val venue = selectedVenue()
@@ -213,18 +190,6 @@ class AppState {
         reviews.add(0, Review("r-${System.currentTimeMillis()}", venueId, userName, rating, comment))
         bookings.find { it.venueId == venueId && !it.reviewed }?.reviewed = true
         toast = "Reseña publicada"
-    }
-
-    fun addProviderProduct(name: String, price: Int, stock: Int, image: String, description: String) {
-        products.add(
-            Product(
-                id = "prod-${System.currentTimeMillis()}", venueId = selectedVenueId, name = name,
-                category = selectedVenue().category.label, price = price, stock = stock,
-                imageUrl = image.ifBlank { "https://images.unsplash.com/photo-1518459031867-a89b944bffe4?auto=format&fit=crop&w=900&q=80" },
-                description = description.ifBlank { "Producto publicado por el proveedor." }
-            )
-        )
-        toast = "Producto publicado"
     }
 }
 

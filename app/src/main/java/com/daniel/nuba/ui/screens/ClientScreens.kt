@@ -20,9 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,7 +30,6 @@ import com.daniel.nuba.ui.viewmodels.ClientViewModel
 import com.daniel.nuba.data.AppState
 import com.daniel.nuba.model.AppRoute
 import com.daniel.nuba.model.Category
-import com.daniel.nuba.model.Product
 import com.daniel.nuba.model.Venue
 import com.daniel.nuba.ui.components.*
 import com.daniel.nuba.ui.theme.*
@@ -49,7 +46,7 @@ fun HomeScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: Cl
                     Column(Modifier.align(Alignment.BottomStart).padding(18.dp)) {
                         Text("Confirmación rápida", color = NubaCyan, fontSize = 11.sp, fontWeight = FontWeight.Black)
                         Text("Elige, paga y entra con QR", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                        Text("Reservas con calendario mensual, tienda del local y reseñas reales.", color = Color.White.copy(.78f), fontSize = 13.sp)
+                        Text("Reservas con calendario mensual, servicios premium y reseñas reales.", color = Color.White.copy(.78f), fontSize = 13.sp)
                     }
                 }
             }
@@ -75,7 +72,7 @@ fun ExploreScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel:
     MobileScaffold(appState, AppRoute.Explore, onNavigate) {
         val filtered = viewModel.filteredVenues(appState)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Explorar", appState.selectedCategory.label, "Filtra locales, revisa fotos, tienda y disponibilidad.", back = { onNavigate(AppRoute.Home) }) }
+            item { ScreenHeader("Explorar", appState.selectedCategory.label, "Filtra locales, revisa fotos y disponibilidad.") }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     Category.entries.forEach { category -> CategoryPill(category, category == appState.selectedCategory) { appState.selectedCategory = category } }
@@ -107,7 +104,6 @@ fun ExploreScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel:
 @Composable
 fun DetailScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
     val venue = viewModel.getVenue(appState)
-    val products = viewModel.getProducts(appState, venue.id)
     val reviews = viewModel.getReviews(appState, venue.id)
     MobileScaffold(appState, AppRoute.Detail, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
@@ -139,12 +135,6 @@ fun DetailScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: 
                 }
             }
             item {
-                SectionTitle("Tienda del local", if (products.isEmpty()) "Este local no publicó productos" else "Productos del mismo local")
-                Spacer(Modifier.height(8.dp))
-                if (products.isEmpty()) EmptyState("Sin tienda", "Puedes reservar sin productos adicionales.", Icons.Outlined.Storefront)
-                else ProductHorizontal(products.take(3), appState, onNavigate)
-            }
-            item {
                 SectionTitle("Reseñas", "Opiniones antes de reservar")
                 reviews.take(2).forEach { review -> ReviewMiniCard(review.comment, review.author, review.rating) }
                 SecondaryButton("Ver y calificar", icon = Icons.Outlined.Reviews) { onNavigate(AppRoute.Reviews) }
@@ -171,90 +161,10 @@ fun DetailScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: 
 }
 
 @Composable
-fun ShopScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
-    val venue = viewModel.getVenue(appState)
-    val products = viewModel.getProducts(appState, venue.id)
-    MobileScaffold(appState, AppRoute.Shop, onNavigate) {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Tienda del local", venue.name, "Productos propios del negocio elegido.", Icons.Outlined.ShoppingCart, onAction = { onNavigate(AppRoute.Cart) }, back = { onNavigate(AppRoute.Detail) }) }
-            if (products.isEmpty()) item { EmptyState("Sin productos", "Este negocio no tiene tienda por ahora.", Icons.Outlined.Storefront) }
-            items(products) { ProductRow(product = it, appState = appState) }
-        }
-    }
-}
-
-@Composable
-fun CartScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
-    MobileScaffold(appState, AppRoute.Cart, onNavigate) {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Tu compra", "Carrito", "Revisa productos y cantidades.", back = { onNavigate(AppRoute.Shop) }) }
-            if (appState.cart.isEmpty()) item { EmptyState("Carrito vacío", "Agrega productos desde la tienda del local.", Icons.Outlined.ShoppingCart) }
-            items(appState.cart) { item ->
-                GlassCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(item.product.imageUrl, null, modifier = Modifier.size(72.dp).clip(RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(item.product.name, color = Color.White, fontWeight = FontWeight.Black)
-                            Text("S/ ${item.product.price}.00", color = NubaCyan, fontWeight = FontWeight.Bold)
-                        }
-                        Text("x${item.quantity}", color = Color.White, fontWeight = FontWeight.Black)
-                    }
-                }
-            }
-            item {
-                GlassCard {
-                    Row { Text("Total", color = NubaMuted); Spacer(Modifier.weight(1f)); Text("S/ ${appState.cartTotal()}.00", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black) }
-                }
-                Spacer(Modifier.height(12.dp))
-                PrimaryButton("Finalizar compra", enabled = appState.cart.isNotEmpty(), icon = Icons.Outlined.CreditCard) { viewModel.showPaymentSheet = true }
-            }
-        }
-    }
-    if (viewModel.showPaymentSheet) PaymentSheet(title = "Confirmar compra", amount = appState.cartTotal(), onDismiss = { viewModel.showPaymentSheet = false }) {
-        viewModel.finalizePurchase(appState)
-    }
-}
-
-@Composable
 fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ClientViewModel = viewModel()) {
-    val context = LocalContext.current
-
-    LaunchedEffect(Unit) {
-        viewModel.loadProfileState(context, appState)
-    }
-
-    if (viewModel.showSecurityDialog) {
-        AlertDialog(
-            onDismissRequest = { viewModel.showSecurityDialog = false; viewModel.confirmPassword = "" },
-            title = { Text("Seguridad biométrica") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(
-                        "La huella está vinculada a la cuenta ${appState.role.title}. Para olvidar este acceso rápido, confirma la contraseña de la cuenta.",
-                        fontSize = 13.sp
-                    )
-                    OutlinedTextField(
-                        value = viewModel.confirmPassword,
-                        onValueChange = { viewModel.confirmPassword = it },
-                        label = { Text("Contraseña") },
-                        leadingIcon = { Icon(Icons.Outlined.Lock, null) },
-                        visualTransformation = PasswordVisualTransformation(),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.disableBiometric(context, appState) }) { Text("Confirmar") }
-            },
-            dismissButton = { TextButton(onClick = { viewModel.showSecurityDialog = false; viewModel.confirmPassword = "" }) { Text("Cancelar") } }
-        )
-    }
-
     MobileScaffold(appState, AppRoute.Profile, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Tu cuenta", "Perfil", "Preferencias, historial y soporte.", Icons.Outlined.Logout, onAction = { onNavigate(AppRoute.Login) }, back = { onNavigate(AppRoute.Home) }) }
+            item { ScreenHeader("Tu cuenta", "Perfil", "Preferencias, historial y soporte.") }
             item {
                 GlassCard {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
@@ -267,47 +177,8 @@ fun ProfileScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel:
                     }
                 }
             }
-            item {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatCard("Reservas", appState.bookings.size.toString(), Modifier.weight(1f))
-                    StatCard("Favoritos", "03", Modifier.weight(1f))
-                    StatCard("Reseñas", appState.reviews.count { it.author == appState.userName }.toString(), Modifier.weight(1f))
-                }
-            }
-            item { BiometricSecurityCard(viewModel.biometricEnabled, appState.role.title) { viewModel.showSecurityDialog = true } }
             item { MenuLink("Mis reservas", "QR, historial y próximos planes", Icons.Outlined.CalendarMonth) { onNavigate(AppRoute.Bookings) } }
-            item { MenuLink("Carrito", "Productos seleccionados", Icons.Outlined.ShoppingCart) { onNavigate(AppRoute.Cart) } }
             item { MenuLink("Cerrar sesión", "Volver a elegir tipo de cuenta", Icons.Outlined.Logout) { onNavigate(AppRoute.Login) } }
-        }
-    }
-}
-
-@Composable
-private fun BiometricSecurityCard(enabled: Boolean, roleTitle: String, onManage: () -> Unit) {
-    GlassCard(radius = 22) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (enabled) NubaCyan.copy(.16f) else Color.White.copy(.07f))
-                    .border(1.dp, if (enabled) NubaCyan.copy(.45f) else Color.White.copy(.13f), RoundedCornerShape(16.dp)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Outlined.Fingerprint, null, tint = if (enabled) NubaCyan else NubaMuted, modifier = Modifier.size(25.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Seguridad de acceso", color = Color.White, fontWeight = FontWeight.Black, fontSize = 15.sp)
-                Text(
-                    if (enabled) "Huella activa para $roleTitle" else "Puedes vincular huella desde el próximo inicio de sesión",
-                    color = NubaMuted,
-                    fontSize = 12.sp
-                )
-            }
-            if (enabled) {
-                TextButton(onClick = onManage) { Text("Gestionar", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-            }
         }
     }
 }
@@ -364,30 +235,6 @@ fun MiniBadge(icon: androidx.compose.ui.graphics.vector.ImageVector, text: Strin
 fun InfoBlock(title: String, body: String) { GlassCard { Text(title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black); Spacer(Modifier.height(8.dp)); Text(body, color = Color.White.copy(.82f), fontSize = 14.sp, lineHeight = 21.sp) } }
 @Composable
 fun ServiceChip(text: String, modifier: Modifier = Modifier) { Row(modifier.clip(RoundedCornerShape(16.dp)).background(Color.White.copy(.07f)).border(1.dp, Color.White.copy(.11f), RoundedCornerShape(16.dp)).padding(13.dp), verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.Check, null, tint = NubaCyan, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(8.dp)); Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp) } }
-
-@Composable
-fun ProductHorizontal(products: List<Product>, appState: AppState, onNavigate: (AppRoute) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        products.forEach { ProductRow(it, appState) }
-        SecondaryButton("Abrir tienda del local", icon = Icons.Outlined.Storefront) { onNavigate(AppRoute.Shop) }
-    }
-}
-
-@Composable
-fun ProductRow(product: Product, appState: AppState) {
-    GlassCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            AsyncImage(product.imageUrl, null, modifier = Modifier.size(86.dp).clip(RoundedCornerShape(20.dp)), contentScale = ContentScale.Crop)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(product.name, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                Text(product.description, color = NubaMuted, fontSize = 12.sp, maxLines = 2)
-                Text("S/ ${product.price}.00 · Stock ${product.stock}", color = NubaCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-            IconButton(onClick = { appState.addToCart(product) }, modifier = Modifier.glassIcon()) { Icon(Icons.Outlined.AddShoppingCart, null, tint = Color.White) }
-        }
-    }
-}
 
 @Composable
 fun ReviewMiniCard(text: String, author: String, rating: Int) { GlassCard { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.Star, null, tint = NubaAmber); Spacer(Modifier.width(6.dp)); Text("$rating.0", color = Color.White, fontWeight = FontWeight.Black); Spacer(Modifier.weight(1f)); Text(author, color = NubaMuted, fontSize = 12.sp) }; Spacer(Modifier.height(8.dp)); Text(text, color = Color.White.copy(.82f), fontSize = 13.sp) } }

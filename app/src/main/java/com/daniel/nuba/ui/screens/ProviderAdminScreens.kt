@@ -1,11 +1,17 @@
 package com.daniel.nuba.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -15,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -29,26 +36,135 @@ import com.daniel.nuba.ui.theme.*
 
 @Composable
 fun ProviderScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ProviderAdminViewModel = viewModel()) {
+    LaunchedEffect(Unit) {
+        viewModel.loadProviderBusinesses()
+    }
     MobileScaffold(appState, AppRoute.Provider, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Proveedor", "Mi negocio", "Gestiona reservas, local, horarios, productos y reseñas.", back = { onNavigate(AppRoute.Login) }) }
+            item { ScreenHeader("Proveedor", "Mi negocio", "Gestiona reservas, local, horarios y reseñas.") }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Resumen","Local","Horarios","Productos","Reseñas","QR").forEach { item ->
-                        FilterButton(item, item == viewModel.providerTab, Modifier.weight(1f)) { viewModel.providerTab = item }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    listOf("Negocios","Resumen","Local","Horarios","Reseñas","QR").forEach { item ->
+                        FilterButton(item, item == viewModel.providerTab, Modifier.width(90.dp)) { viewModel.providerTab = item }
                     }
                 }
             }
             when (viewModel.providerTab) {
+                "Negocios" -> item { ProviderBusinesses(appState, viewModel) }
                 "Resumen" -> item { ProviderSummary(appState, viewModel) }
                 "Local" -> item { ProviderLocal(appState, viewModel) }
                 "Horarios" -> item { ProviderAvailability(appState, viewModel) }
-                "Productos" -> item { ProviderProducts(appState, viewModel) }
                 "Reseñas" -> item { ProviderReviews(appState, viewModel) }
                 "QR" -> item { ProviderQr(appState, viewModel) }
             }
         }
     }
+    if (viewModel.showBusinessDialog) BusinessDialog(viewModel, appState) { viewModel.saveBusiness(appState) }
+}
+
+@Composable
+private fun ProviderBusinesses(appState: AppState, viewModel: ProviderAdminViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        PrimaryButton("Nuevo negocio", icon = Icons.Outlined.Add) { viewModel.openCreateBusiness() }
+        
+        if (viewModel.loadingBusinesses) {
+            Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = NubaCyan)
+            }
+        } else if (viewModel.businesses.isEmpty()) {
+            EmptyState("Sin negocios", "Aún no has registrado ningún local.", Icons.Outlined.Business)
+        } else {
+            viewModel.businesses.forEach { business ->
+                GlassCard {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(business.title, color = Color.White, fontWeight = FontWeight.Black, fontSize = 16.sp)
+                            Text(business.address ?: "Sin dirección", color = NubaMuted, fontSize = 12.sp)
+                            Text(business.category.label, color = NubaCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        IconButton(onClick = { viewModel.openEditBusiness(business) }) {
+                            Icon(Icons.Outlined.Edit, null, tint = Color.White.copy(0.7f))
+                        }
+                        IconButton(onClick = { viewModel.deleteBusiness(business.id!!, appState) }) {
+                            Icon(Icons.Outlined.Delete, null, tint = Color.Red.copy(0.7f))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BusinessDialog(viewModel: ProviderAdminViewModel, appState: AppState, onSave: () -> Unit) {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let {
+            val bytes = context.contentResolver.openInputStream(it)?.readBytes()
+            bytes?.let { b -> viewModel.uploadBusinessImage(b, appState) }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { viewModel.showBusinessDialog = false },
+        title = { Text(if (viewModel.editingBusiness == null) "Nuevo Negocio" else "Editar Negocio", color = Color.White) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+                TextInput("Título", viewModel.busTitle) { viewModel.busTitle = it }
+                TextInput("Descripción", viewModel.busDescription) { viewModel.busDescription = it }
+                SectionTitle("Categoría", "")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Category.entries.forEach { cat ->
+                        FilterButton(cat.label, cat == viewModel.busCategory, Modifier.weight(1f)) { viewModel.busCategory = cat }
+                    }
+                }
+                TextInput("Dirección", viewModel.busAddress) { viewModel.busAddress = it }
+                TextInput("Teléfono", viewModel.busPhone) { viewModel.busPhone = it }
+                TextInput("Email", viewModel.busEmail) { viewModel.busEmail = it }
+                
+                Spacer(Modifier.height(8.dp))
+                SectionTitle("Foto de portada", "")
+                if (viewModel.busImage.isNotBlank()) {
+                    AsyncImage(
+                        model = viewModel.busImage,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+                
+                Button(
+                    onClick = { launcher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(0.1f)),
+                    enabled = !viewModel.uploadingImage
+                ) {
+                    if (viewModel.uploadingImage) {
+                        CircularProgressIndicator(Modifier.size(20.dp), color = NubaCyan, strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Outlined.PhotoCamera, null, tint = NubaCyan)
+                        Spacer(Modifier.width(8.dp))
+                        Text(if (viewModel.busImage.isBlank()) "Elegir foto" else "Cambiar foto", color = Color.White)
+                    }
+                }
+                
+                TextInput("O URL personalizada", viewModel.busImage) { viewModel.busImage = it }
+            }
+        },
+        confirmButton = {
+            Button(onClick = onSave, colors = ButtonDefaults.buttonColors(containerColor = NubaViolet), enabled = !viewModel.uploadingImage) {
+                Text("Guardar")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { viewModel.showBusinessDialog = false }) {
+                Text("Cancelar")
+            }
+        },
+        containerColor = Color(0xFF0A1122),
+        shape = RoundedCornerShape(24.dp)
+    )
 }
 
 @Composable
@@ -57,7 +173,6 @@ private fun ProviderSummary(appState: AppState, viewModel: ProviderAdminViewMode
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatCard("Ingresos", "S/ 820", Modifier.weight(1f))
             StatCard("Reservas", appState.bookings.size.toString(), Modifier.weight(1f))
-            StatCard("Stock", appState.products.size.toString(), Modifier.weight(1f))
         }
         SectionTitle("Solicitudes recientes", "Aprobar o rechazar reservas")
         appState.bookings.take(3).forEach { booking ->
@@ -120,29 +235,6 @@ private fun ProviderAvailability(appState: AppState, viewModel: ProviderAdminVie
 }
 
 @Composable
-private fun ProviderProducts(appState: AppState, viewModel: ProviderAdminViewModel) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        PrimaryButton("Agregar producto", icon = Icons.Outlined.AddPhotoAlternate) { viewModel.showAddProduct = true }
-        appState.venueProducts().forEach { product ->
-            GlassCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    AsyncImage(product.imageUrl, null, Modifier.size(74.dp).clip(RoundedCornerShape(18.dp)), contentScale = ContentScale.Crop)
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(product.name, color = Color.White, fontWeight = FontWeight.Black)
-                        Text("S/ ${product.price}.00 · Stock ${product.stock}", color = NubaCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                    IconButton(onClick = { product.stock++ }, modifier = Modifier.glassIcon()) { Icon(Icons.Outlined.Add, null, tint = Color.White) }
-                }
-            }
-        }
-    }
-    if (viewModel.showAddProduct) AddProductDialog(viewModel) {
-        viewModel.addProduct(appState)
-    }
-}
-
-@Composable
 private fun ProviderReviews(appState: AppState, viewModel: ProviderAdminViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         SectionTitle("Reseñas del local", "Responder o reportar comentarios")
@@ -182,7 +274,7 @@ private fun ProviderQr(appState: AppState, viewModel: ProviderAdminViewModel) {
 fun AdminScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ProviderAdminViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Admin, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Administrador", "Panel general", "Controla negocios, usuarios, reportes y reseñas.", back = { onNavigate(AppRoute.Login) }) }
+            item { ScreenHeader("Administrador", "Panel general", "Controla negocios, usuarios, reportes y reseñas.") }
             item { Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Aprobaciones","Negocios","Usuarios","Reseñas").forEach { FilterButton(it, it == viewModel.adminTab, Modifier.weight(1f)) { viewModel.adminTab = it } } } }
             when(viewModel.adminTab){
                 "Aprobaciones" -> item { AdminApprovals(appState, viewModel) }
@@ -208,23 +300,3 @@ private fun FilterButton(text: String, selected: Boolean, modifier: Modifier = M
 @Composable
 private fun TextInput(label: String, value: String, onValue: (String) -> Unit) { OutlinedTextField(value = value, onValueChange = onValue, label = { Text(label) }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = NubaCyan, unfocusedBorderColor = Color.White.copy(.15f), focusedLabelColor = NubaCyan, unfocusedLabelColor = NubaMuted, cursorColor = NubaCyan)) }
 
-@Composable
-private fun AddProductDialog(viewModel: ProviderAdminViewModel, onAdd: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = { viewModel.showAddProduct = false },
-        confirmButton = { Button(onClick = onAdd, colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Guardar") } },
-        dismissButton = { TextButton(onClick = { viewModel.showAddProduct = false }) { Text("Cancelar") } },
-        title = { Text("Nuevo producto", color = Color.White, fontWeight = FontWeight.Black) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextInput("Nombre", viewModel.newProductName) { viewModel.newProductName = it }
-                TextInput("Precio", viewModel.newProductPrice) { viewModel.newProductPrice = it }
-                TextInput("Stock", viewModel.newProductStock) { viewModel.newProductStock = it }
-                TextInput("URL de imagen", viewModel.newProductImage) { viewModel.newProductImage = it }
-                TextInput("Descripción", viewModel.newProductDesc) { viewModel.newProductDesc = it }
-            }
-        },
-        containerColor = Color(0xEE142238),
-        shape = RoundedCornerShape(28.dp)
-    )
-}

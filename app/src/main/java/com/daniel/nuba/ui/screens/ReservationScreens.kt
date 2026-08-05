@@ -202,7 +202,7 @@ fun ConfirmationScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
 fun BookingsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ReservationViewModel = viewModel()) {
     MobileScaffold(appState, AppRoute.Bookings, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Mis reservas", "Próximos planes", "QR, historial, cancelación y reseñas.", back = { onNavigate(AppRoute.Home) }) }
+            item { ScreenHeader("Mis reservas", "Próximos planes", "QR, historial, cancelación y reseñas.") }
             if (appState.bookings.isEmpty()) item { EmptyState("Sin reservas", "Cuando confirmes una reserva aparecerá aquí.", Icons.Outlined.CalendarMonth) }
             items(appState.bookings) { booking ->
                 GlassCard {
@@ -233,7 +233,7 @@ fun ReviewsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel:
     val venue = appState.selectedVenue()
     MobileScaffold(appState, AppRoute.Reviews, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Reseñas", venue.name, "Lee experiencias y publica tu opinión.", back = { onNavigate(AppRoute.Detail) }) }
+            item { ScreenHeader("Reseñas", venue.name, "Lee experiencias y publica tu opinión.") }
             item { PrimaryButton("Agregar reseña", icon = Icons.Outlined.RateReview) { viewModel.openReview(venue.id) } }
             items(appState.venueReviews(venue.id)) { review -> ReviewMiniCard(review.comment, review.author, review.rating) }
         }
