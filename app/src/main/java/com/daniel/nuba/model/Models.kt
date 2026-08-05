@@ -64,6 +64,7 @@ data class Business(
     @EncodeDefault(EncodeDefault.Mode.NEVER) var email: String? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER) var website: String? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER) var cover_photo: String? = null,
+    var price: Double = 0.0,
     var is_active: Boolean = true,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val created_at: String? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val updated_at: String? = null
@@ -78,8 +79,8 @@ data class Venue(
     var address: String,
     var distance: String,
     var price: Int,
-    var rating: Double,
-    var reviews: Int,
+    var rating: Double = 0.0,
+    var reviewsCount: Int = 0,
     val latitude: Double,
     val longitude: Double,
     var imageUrl: String,
@@ -87,7 +88,10 @@ data class Venue(
     var approved: Boolean = true,
     var owner: String = "Daniel Apaza",
     var services: List<String> = listOf("Reserva digital", "Confirmación QR", "Pago móvil"),
-    var schedules: MutableList<ScheduleSlot> = mutableListOf()
+    var schedules: MutableList<ScheduleSlot> = mutableListOf(),
+    var phone: String = "",
+    var email: String = "",
+    var website: String = ""
 )
 
 @Serializable
@@ -107,14 +111,18 @@ data class Booking(
 
 @Serializable
 data class Review(
-    val id: String,
-    val venueId: String,
-    val author: String,
+    @SerialName("id") val id: String? = null,
+    @SerialName("business_id") val businessId: String,
+    @SerialName("user_id") val userId: String,
     val rating: Int,
-    val comment: String,
+    val comment: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
     var status: String = "Publicada",
-    var response: String = ""
-)
+    var response: String? = null,
+    @Transient val authorName: String? = null
+) {
+    val author: String get() = authorName ?: (if (userId.length > 8) "Usuario de NUBA" else userId)
+}
 
 @Serializable
 data class ScheduleSlot(
@@ -149,7 +157,6 @@ sealed class AppRoute(val title: String, val icon: ImageVector) {
     data object Payment : AppRoute("Pago", Icons.Outlined.ConfirmationNumber)
     data object Confirmation : AppRoute("QR", Icons.Outlined.QrCodeScanner)
     data object Map : AppRoute("Mapa", Icons.Outlined.Map)
-    data object Bookings : AppRoute("Reservas", Icons.Outlined.CalendarMonth)
     data object Reviews : AppRoute("Reseñas", Icons.Outlined.Reviews)
     data object Profile : AppRoute("Perfil", Icons.Outlined.Person)
     data object Provider : AppRoute("Negocio", Icons.Outlined.Dashboard)

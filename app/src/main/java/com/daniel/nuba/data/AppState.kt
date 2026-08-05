@@ -54,81 +54,96 @@ class AppState {
                     id = "arena-sur",
                     name = "Arena Sur Puno",
                     category = Category.DEPORTES,
-                    description = "Cancha de fútbol 6 con iluminación, vestidores y validación QR.",
-                    address = "Jr. Los Incas, Puno",
+                    description = "Cancha de fútbol 6 con iluminación profesional, vestidores limpios y validación rápida por QR. Ideal para partidos nocturnos con amigos.",
+                    address = "Jr. Los Incas 450, Puno",
                     distance = "1.2 km",
                     price = 78,
                     rating = 4.8,
-                    reviews = 124,
+                    reviewsCount = 124,
                     latitude = -15.8436,
                     longitude = -70.0201,
                     imageUrl = "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80",
                     services = listOf("Iluminación", "Vestidores", "Estacionamiento", "Wi-Fi"),
-                    schedules = baseSchedule.map { it.copy() }.toMutableList()
+                    schedules = baseSchedule.map { it.copy() }.toMutableList(),
+                    phone = "+51 950 123 456",
+                    email = "contacto@arenasurpuno.pe",
+                    website = "www.arenasurpuno.pe"
                 ),
                 Venue(
                     id = "nexo-padel",
                     name = "Nexo Pádel",
                     category = Category.DEPORTES,
-                    description = "Canchas de pádel con superficie profesional, alquiler de raquetas y venta de bebidas.",
-                    address = "Av. La Torre, Puno",
+                    description = "Canchas de pádel con superficie profesional, alquiler de raquetas de alta gama y venta de bebidas energéticas y snacks.",
+                    address = "Av. La Torre 890, Puno",
                     distance = "2.0 km",
                     price = 92,
                     rating = 4.7,
-                    reviews = 88,
+                    reviewsCount = 88,
                     latitude = -15.8358,
                     longitude = -70.0298,
                     imageUrl = "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?auto=format&fit=crop&w=1200&q=80",
                     services = listOf("Raquetas", "Duchas", "Cafetería"),
-                    schedules = baseSchedule.map { it.copy() }.toMutableList()
+                    schedules = baseSchedule.map { it.copy() }.toMutableList(),
+                    phone = "+51 951 789 456",
+                    email = "info@nexopadel.com",
+                    website = "www.nexopadel.com"
                 ),
                 Venue(
                     id = "barber-studio",
                     name = "Studio Barber 360",
                     category = Category.BELLEZA,
-                    description = "Barbería moderna con reserva por hora y atención personalizada.",
-                    address = "Jr. Lima, Puno",
+                    description = "Barbería moderna con ambiente relajado, música, reserva por hora y atención personalizada por expertos barberos.",
+                    address = "Jr. Lima 120, Puno",
                     distance = "900 m",
                     price = 35,
                     rating = 4.9,
-                    reviews = 203,
+                    reviewsCount = 203,
                     latitude = -15.8389,
                     longitude = -70.0242,
                     imageUrl = "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=1200&q=80",
                     services = listOf("Corte", "Barba", "Color"),
-                    schedules = baseSchedule.map { it.copy(open = "09:00", close = "21:00") }.toMutableList()
+                    schedules = baseSchedule.map { it.copy(open = "09:00", close = "21:00") }.toMutableList(),
+                    phone = "+51 958 456 123",
+                    email = "hola@barber360.pe",
+                    website = "www.barberstudio360.com"
                 ),
                 Venue(
                     id = "glow-beauty",
                     name = "Glow Beauty Lab",
                     category = Category.BELLEZA,
-                    description = "Salón de belleza para uñas, maquillaje y peinado con confirmación inmediata.",
-                    address = "Av. El Sol, Puno",
+                    description = "Salón de belleza especializado en el cuidado de uñas, maquillaje profesional y peinados para eventos con confirmación inmediata.",
+                    address = "Av. El Sol 315, Puno",
                     distance = "1.6 km",
                     price = 45,
                     rating = 4.6,
-                    reviews = 76,
+                    reviewsCount = 76,
                     latitude = -15.8456,
                     longitude = -70.0269,
                     imageUrl = "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1200&q=80",
                     services = listOf("Uñas", "Maquillaje", "Peinado", "Tratamientos"),
-                    schedules = baseSchedule.map { it.copy(open = "10:00", close = "20:00") }.toMutableList()
+                    schedules = baseSchedule.map { it.copy(open = "10:00", close = "20:00") }.toMutableList(),
+                    phone = "+51 959 654 321",
+                    email = "citas@glowbeauty.pe",
+                    website = "www.glowbeautylab.pe"
                 ),
                 Venue(
                     id = "arcade-zone",
                     name = "Arcade Zone Puno",
                     category = Category.ENTRETENIMIENTO,
-                    description = "Cabinas gamer, realidad virtual y paquetes para grupos con reserva anticipada.",
-                    address = "Jr. Deustua, Puno",
+                    description = "Cabinas gamer de alto rendimiento, experiencias de realidad virtual inmersivas y paquetes especiales para grupos.",
+                    address = "Jr. Deustua 210, Puno",
                     distance = "1.4 km",
                     price = 28,
                     rating = 4.5,
-                    reviews = 69,
+                    reviewsCount = 69,
                     latitude = -15.8406,
                     longitude = -70.0213,
                     imageUrl = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80",
                     services = listOf("VR", "PC Gamer", "Snacks", "Torneos"),
-                    schedules = baseSchedule.map { it.copy(open = "11:00", close = "23:00") }.toMutableList()
+                    schedules = baseSchedule.map { it.copy(open = "11:00", close = "23:00") }.toMutableList(),
+                    phone = "+51 957 321 987",
+                    email = "play@arcadezone.com",
+                    website = "www.arcadezonepuno.pe"
                 )
             )
         )
@@ -162,7 +177,7 @@ class AppState {
     }
 
     fun selectedVenue(): Venue = venues.firstOrNull { it.id == selectedVenueId } ?: venues.first()
-    fun venueReviews(venueId: String = selectedVenueId): List<Review> = reviews.filter { it.venueId == venueId && it.status == "Publicada" }
+    fun venueReviews(venueId: String = selectedVenueId): List<Review> = reviews.filter { it.businessId == venueId && it.status == "Publicada" }
 
     fun filteredVenues(): List<Venue> = venues.filter { it.category == selectedCategory && it.approved && it.status == "Activo" }
 

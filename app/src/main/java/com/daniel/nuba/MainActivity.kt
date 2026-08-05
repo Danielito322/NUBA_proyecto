@@ -33,7 +33,6 @@ class MainActivity : FragmentActivity() {
                     AppRoute.Payment -> PaymentScreen(appState, ::navigate)
                     AppRoute.Confirmation -> ConfirmationScreen(appState, ::navigate)
                     AppRoute.Map -> MapScreen(appState, ::navigate)
-                    AppRoute.Bookings -> BookingsScreen(appState, ::navigate)
                     AppRoute.Reviews -> ReviewsScreen(appState, ::navigate)
                     AppRoute.Profile -> ProfileScreen(appState, ::navigate)
                     AppRoute.Provider -> ProviderScreen(appState, ::navigate)

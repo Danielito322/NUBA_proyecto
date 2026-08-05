@@ -44,7 +44,7 @@ fun ProviderScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel
             item { ScreenHeader("Proveedor", "Mi negocio", "Gestiona reservas, local, horarios y reseñas.") }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    listOf("Negocios","Resumen","Local","Horarios","Reseñas","QR").forEach { item ->
+                    listOf("Negocios").forEach { item ->
                         FilterButton(item, item == viewModel.providerTab, Modifier.width(90.dp)) { viewModel.providerTab = item }
                     }
                 }
@@ -121,6 +121,7 @@ private fun BusinessDialog(viewModel: ProviderAdminViewModel, appState: AppState
                 TextInput("Dirección", viewModel.busAddress) { viewModel.busAddress = it }
                 TextInput("Teléfono", viewModel.busPhone) { viewModel.busPhone = it }
                 TextInput("Email", viewModel.busEmail) { viewModel.busEmail = it }
+                TextInput("Precio referencial (S/)", viewModel.busPrice) { viewModel.busPrice = it }
                 
                 Spacer(Modifier.height(8.dp))
                 SectionTitle("Foto de portada", "")
@@ -241,7 +242,7 @@ private fun ProviderReviews(appState: AppState, viewModel: ProviderAdminViewMode
         appState.venueReviews().forEach { review ->
             GlassCard {
                 Row { Text("${review.rating}.0", color = NubaAmber, fontWeight = FontWeight.Black); Spacer(Modifier.weight(1f)); Text(review.author, color = NubaMuted, fontSize = 12.sp) }
-                Text(review.comment, color = Color.White.copy(.84f), fontSize = 13.sp)
+                Text(review.comment ?: "", color = Color.White.copy(.84f), fontSize = 13.sp)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = { viewModel.updateReviewStatus(review, "Reportada") }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Reportar") }
@@ -293,7 +294,7 @@ private fun AdminBusinesses(appState: AppState, viewModel: ProviderAdminViewMode
 @Composable
 private fun AdminUsers() { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { listOf("Daniel Apaza - Cliente", "Proveedor NUBA - Proveedor", "Administrador - Admin").forEach { user -> GlassCard { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.Person, null, tint = NubaCyan); Spacer(Modifier.width(10.dp)); Text(user, color = Color.White, fontWeight = FontWeight.Bold); Spacer(Modifier.weight(1f)); Text("Activo", color = NubaGreen, fontSize = 12.sp) } } } } }
 @Composable
-private fun AdminReviews(appState: AppState, viewModel: ProviderAdminViewModel) { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { appState.reviews.forEach { review -> GlassCard { Text(review.comment, color = Color.White, fontWeight = FontWeight.Bold); Text("${review.author} · Estado: ${review.status}", color = NubaMuted, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { viewModel.updateReviewStatus(review, "Oculta") }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Ocultar") }; Button(onClick = { viewModel.updateReviewStatus(review, "Publicada") }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Publicar") } } } } } }
+private fun AdminReviews(appState: AppState, viewModel: ProviderAdminViewModel) { Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { appState.reviews.forEach { review -> GlassCard { Text(review.comment ?: "", color = Color.White, fontWeight = FontWeight.Bold); Text("${review.author} · Estado: ${review.status}", color = NubaMuted, fontSize = 12.sp); Spacer(Modifier.height(8.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { OutlinedButton(onClick = { viewModel.updateReviewStatus(review, "Oculta") }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp)) { Text("Ocultar") }; Button(onClick = { viewModel.updateReviewStatus(review, "Publicada") }, Modifier.weight(1f), shape = RoundedCornerShape(15.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Publicar") } } } } } }
 
 @Composable
 private fun FilterButton(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) { Text(text, color = if(selected) Color.White else NubaMuted, fontSize = 11.sp, fontWeight = FontWeight.Black, modifier = modifier.clip(RoundedCornerShape(16.dp)).background(if(selected) NubaViolet.copy(.42f) else Color.White.copy(.06f)).border(1.dp, if(selected) NubaViolet else Color.White.copy(.11f), RoundedCornerShape(16.dp)).clickable(onClick=onClick).padding(vertical = 11.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }

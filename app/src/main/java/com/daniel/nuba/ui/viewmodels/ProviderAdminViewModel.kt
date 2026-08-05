@@ -42,6 +42,7 @@ class ProviderAdminViewModel : ViewModel() {
     var busPhone by mutableStateOf("")
     var busEmail by mutableStateOf("")
     var busImage by mutableStateOf("")
+    var busPrice by mutableStateOf("")
 
     var uploadingImage by mutableStateOf(false)
 
@@ -107,6 +108,7 @@ class ProviderAdminViewModel : ViewModel() {
         busPhone = ""
         busEmail = ""
         busImage = ""
+        busPrice = ""
         showBusinessDialog = true
     }
 
@@ -119,6 +121,7 @@ class ProviderAdminViewModel : ViewModel() {
         busPhone = business.phone ?: ""
         busEmail = business.email ?: ""
         busImage = business.cover_photo ?: ""
+        busPrice = business.price.toString()
         showBusinessDialog = true
     }
 
@@ -142,7 +145,8 @@ class ProviderAdminViewModel : ViewModel() {
                         address = busAddress.ifBlank { null },
                         phone = busPhone.ifBlank { null },
                         email = busEmail.ifBlank { null },
-                        cover_photo = busImage.ifBlank { null }
+                        cover_photo = busImage.ifBlank { null },
+                        price = busPrice.toDoubleOrNull() ?: 0.0
                     )
                     Log.d(TAG, "Insertando nuevo negocio via Postgrest")
                     client.postgrest["businesses"].insert(business)
@@ -157,7 +161,8 @@ class ProviderAdminViewModel : ViewModel() {
                         address = busAddress.ifBlank { null },
                         phone = busPhone.ifBlank { null },
                         email = busEmail.ifBlank { null },
-                        cover_photo = busImage.ifBlank { null }
+                        cover_photo = busImage.ifBlank { null },
+                        price = busPrice.toDoubleOrNull() ?: 0.0
                     )
                     Log.d(TAG, "Actualizando negocio via Postgrest: ${editingBusiness!!.id}")
                     client.postgrest["businesses"].update(business) {

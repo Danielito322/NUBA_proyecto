@@ -66,11 +66,11 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: Logi
         viewModel.events.collect { event ->
             when (event) {
                 is LoginUiEvent.Navigate -> {
-                    appState.role = uiState.selectedRole
+                    appState.role = event.role
                     appState.userEmail = uiState.email
                     // Intentamos obtener el nombre guardado, si no está usamos el del login si el repositorio lo devolviera
                     // Pero por ahora confiamos en lo que hay o lo que el VM disparó
-                    appState.userName = BiometricAuth.savedName(context, uiState.selectedRole).ifBlank { "Usuario" }
+                    appState.userName = BiometricAuth.savedName(context, event.role).ifBlank { "Usuario" }
                     onEnter(event.route)
                 }
                 is LoginUiEvent.ShowToast -> {
@@ -167,64 +167,14 @@ fun LoginScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: Logi
             Spacer(Modifier.height(26.dp))
 
             GlassCard(radius = 30) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text("Bienvenido", color = NubaText, fontSize = 28.sp, fontWeight = FontWeight.Black)
-                        Text(
-                            "Elige tu tipo de cuenta y accede con contraseña o huella.",
-                            color = NubaMuted,
-                            fontSize = 13.sp
-                        )
-                    }
-                    Box(
-                        Modifier
-                            .size(54.dp)
-                            .clip(RoundedCornerShape(19.dp))
-                            .background(Brush.linearGradient(listOf(NubaViolet.copy(.65f), NubaCyan.copy(.40f))))
-                            .border(1.dp, Color.White.copy(.22f), RoundedCornerShape(19.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Outlined.Fingerprint, null, tint = Color.White, modifier = Modifier.size(30.dp))
-                    }
-                }
-                Spacer(Modifier.height(18.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    Role.entries.forEach { role ->
-                        val active = role == uiState.selectedRole
-                        val roleBiometric = BiometricAuth.isEnabled(context, role)
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(98.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(if (active) NubaViolet.copy(.34f) else Color.White.copy(.06f))
-                                .border(1.dp, if (active) NubaViolet else Color.White.copy(.12f), RoundedCornerShape(20.dp))
-                                .clickable { viewModel.onRoleSelected(role) }
-                                .padding(9.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(role.icon, null, tint = if (active) Color.White else NubaMuted, modifier = Modifier.size(22.dp))
-                            Spacer(Modifier.height(6.dp))
-                            Text(role.title, color = Color.White, fontSize = 10.5.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                            Spacer(Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (roleBiometric) Icon(Icons.Outlined.Fingerprint, null, tint = NubaCyan, modifier = Modifier.size(11.dp))
-                                if (roleBiometric) Spacer(Modifier.width(3.dp))
-                                Text(
-                                    if (roleBiometric) "Lista" else "Clave",
-                                    color = if (roleBiometric) NubaCyan else Color.White.copy(.52f),
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(18.dp))
+                Text("Bienvenido", color = NubaText, fontSize = 28.sp, fontWeight = FontWeight.Black)
+                Text(
+                    "Ingresa tus credenciales para acceder a NUBA.",
+                    color = NubaMuted,
+                    fontSize = 13.sp
+                )
+                
+                Spacer(Modifier.height(24.dp))
                 LoginField("Correo", uiState.email, { viewModel.onEmailChange(it) }, Icons.Outlined.Email, KeyboardType.Email)
                 Spacer(Modifier.height(12.dp))
                 LoginField("Contraseña", uiState.password, { viewModel.onPasswordChange(it) }, Icons.Outlined.Lock, KeyboardType.Password, true)

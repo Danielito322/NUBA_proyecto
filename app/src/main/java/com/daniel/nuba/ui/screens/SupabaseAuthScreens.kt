@@ -68,10 +68,10 @@ fun SupabaseLoginScreen(
         viewModel.events.collect { event ->
             when (event) {
                 is LoginUiEvent.Navigate -> {
-                    appState.role = uiState.selectedRole
+                    appState.role = event.role
                     appState.userEmail = uiState.email
                     // Obtenemos el nombre del usuario real que acaba de entrar
-                    appState.userName = BiometricAuth.savedName(context, uiState.selectedRole).ifBlank { "Usuario" }
+                    appState.userName = BiometricAuth.savedName(context, event.role).ifBlank { "Usuario" }
                     onNavigate(event.route)
                 }
                 is LoginUiEvent.ShowToast -> appState.toast = event.message
@@ -239,7 +239,10 @@ fun SupabaseRegisterScreen(
         viewModel.init(context)
         viewModel.events.collect { event ->
             when (event) {
-                is LoginUiEvent.Navigate -> onNavigate(event.route)
+                is LoginUiEvent.Navigate -> {
+                    appState.role = event.role
+                    onNavigate(event.route)
+                }
                 is LoginUiEvent.ShowToast -> appState.toast = event.message
                 else -> {}
             }
