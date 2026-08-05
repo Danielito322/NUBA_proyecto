@@ -39,9 +39,66 @@ import com.daniel.nuba.ui.theme.NubaMuted
 import com.daniel.nuba.ui.theme.NubaText
 import com.daniel.nuba.ui.theme.NubaViolet
 import com.daniel.nuba.ui.viewmodels.LoginViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.daniel.nuba.ui.viewmodels.LoginUiEvent
+import com.daniel.nuba.auth.BiometricAuth
+import com.daniel.nuba.auth.findFragmentActivity
+import com.facebook.FacebookCallback
+import com.facebook.FacebookException
+import com.facebook.login.LoginManager
+import com.facebook.login.LoginResult
+import androidx.credentials.CredentialManager
+import androidx.credentials.GetCredentialRequest
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import kotlinx.coroutines.launch
 
 @Composable
 fun RegistroScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: LoginViewModel = viewModel()) {
+    val context = LocalContext.current
+    val activity = context.findFragmentActivity()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        viewModel.init(context)
+        viewModel.events.collect { event ->
+            when (event) {
+                is LoginUiEvent.Navigate -> {
+                    // Si navegamos al Login, no seteamos appState.role aún para no confundir
+                    if (event.route == AppRoute.Login) {
+                        onEnter(AppRoute.Login)
+                    } else {
+                        appState.role = uiState.selectedRole
+                        appState.userEmail = uiState.email
+                        appState.userName = BiometricAuth.savedName(context, uiState.selectedRole)
+                        onEnter(event.route)
+                    }
+                }
+                is LoginUiEvent.ShowToast -> {
+                    appState.toast = event.message
+                }
+                is LoginUiEvent.LaunchFacebookLogin -> {
+                    activity?.let { act ->
+                        LoginManager.getInstance().registerCallback(viewModel.facebookCallbackManager, object : FacebookCallback<LoginResult> {
+                            override fun onSuccess(result: LoginResult) {
+                                viewModel.onFacebookLoginResult(result.accessToken.token)
+                            }
+                            override fun onCancel() {
+                                viewModel.onAuthCancel("Facebook")
+                            }
+                            override fun onError(error: FacebookException) {
+                                viewModel.onAuthError("Facebook", error.message ?: "Unknown")
+                            }
+                        })
+                        LoginManager.getInstance().logInWithReadPermissions(act, listOf("email", "public_profile"))
+                    }
+                }
+                else -> {}
+            }
+        }
+    }
+
     Box(Modifier.fillMaxSize()) {
         AsyncImage(
             model = "https://images.unsplash.com/photo-1534531173927-aeb928d54385?auto=format&fit=crop&w=1400&q=80",
@@ -101,11 +158,13 @@ fun RegistroScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: L
 
                 Spacer(Modifier.height(24.dp))
 
-                RegistroField("Nombre completo", viewModel.registerName, { viewModel.registerName = it }, Icons.Outlined.Person, KeyboardType.Text)
+                RegistroField("Nombre completo", uiState.registerName, { viewModel.onRegisterNameChange(it) }, Icons.Outlined.Badge, KeyboardType.Text)
                 Spacer(Modifier.height(12.dp))
-                RegistroField("Correo electrónico", viewModel.registerEmail, { viewModel.registerEmail = it }, Icons.Outlined.Email, KeyboardType.Email)
+                RegistroField("Nombre de usuario", uiState.registerUsername, { viewModel.onRegisterUsernameChange(it) }, Icons.Outlined.Person, KeyboardType.Text)
                 Spacer(Modifier.height(12.dp))
-                RegistroField("Contraseña", viewModel.registerPassword, { viewModel.registerPassword = it }, Icons.Outlined.Lock, KeyboardType.Password, true)
+                RegistroField("Correo electrónico", uiState.registerEmail, { viewModel.onRegisterEmailChange(it) }, Icons.Outlined.Email, KeyboardType.Email)
+                Spacer(Modifier.height(12.dp))
+                RegistroField("Contraseña", uiState.registerPassword, { viewModel.onRegisterPasswordChange(it) }, Icons.Outlined.Lock, KeyboardType.Password, true)
                 
                 Spacer(Modifier.height(20.dp))
                 
@@ -119,14 +178,14 @@ fun RegistroScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: L
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     com.daniel.nuba.model.Role.entries.forEach { role ->
-                        val active = role == viewModel.selectedRole
+                        val active = role == uiState.selectedRole
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (active) NubaViolet.copy(.4f) else Color.White.copy(.05f))
                                 .border(1.dp, if (active) NubaViolet else Color.Transparent, RoundedCornerShape(12.dp))
-                                .clickable { viewModel.selectedRole = role }
+                                .clickable { viewModel.onRoleSelected(role) }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -138,14 +197,12 @@ fun RegistroScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: L
                 Spacer(Modifier.height(24.dp))
 
                 PrimaryButton(
-                    if (viewModel.authBusy) "Creando cuenta..." else "Registrarse a Nuba",
+                    if (uiState.authBusy) "Creando cuenta..." else "Registrarse a Nuba",
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !viewModel.authBusy,
+                    enabled = !uiState.authBusy,
                     icon = Icons.Outlined.AppRegistration
                 ) {
-                    viewModel.createFirebaseAccount(appState) {
-                        onEnter(AppRoute.Login)
-                    }
+                    viewModel.registerAccount()
                 }
                 
                 Spacer(Modifier.height(20.dp))
@@ -159,9 +216,30 @@ fun RegistroScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: L
                 Spacer(Modifier.height(10.dp))
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-                    val context = LocalContext.current
                     OutlinedButton(
-                        onClick = { viewModel.loginWithGoogle(context, appState, onEnter) },
+                        onClick = { 
+                            activity?.let { act ->
+                                scope.launch {
+                                    try {
+                                        val credentialManager = CredentialManager.create(context)
+                                        val googleIdOption = GetGoogleIdOption.Builder()
+                                            .setFilterByAuthorizedAccounts(false)
+                                            .setServerClientId(context.getString(R.string.default_web_client_id))
+                                            .build()
+                                        val request = GetCredentialRequest.Builder()
+                                            .addCredentialOption(googleIdOption)
+                                            .build()
+                                        val result = credentialManager.getCredential(act, request)
+                                        val credential = result.credential
+                                        if (credential is GoogleIdTokenCredential) {
+                                            viewModel.onGoogleLoginResult(credential.idToken)
+                                        }
+                                    } catch (e: Exception) {
+                                        viewModel.onAuthError("Google", e.message ?: "Unknown")
+                                    }
+                                }
+                            }
+                        },
                         modifier = Modifier.weight(1f).height(50.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
@@ -178,7 +256,7 @@ fun RegistroScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: L
                     }
                     
                     OutlinedButton(
-                        onClick = { viewModel.loginWithFacebook(context, appState, onEnter) },
+                        onClick = { viewModel.onFacebookLoginClick() },
                         modifier = Modifier.weight(1f).height(50.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),

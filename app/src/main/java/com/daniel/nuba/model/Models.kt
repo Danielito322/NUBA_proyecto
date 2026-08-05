@@ -35,8 +35,11 @@ data class AuthUser(
     val email: String,
     val displayName: String,
     val role: Role,
-    val firebaseUid: String? = null,
-    val isDemo: Boolean = false
+    val uid: String? = null,
+    val isDemo: Boolean = false,
+    val photoUrl: String? = null,
+    val bio: String? = null,
+    val refreshToken: String? = null
 )
 
 data class Venue(

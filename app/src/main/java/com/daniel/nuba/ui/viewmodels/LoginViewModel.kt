@@ -1,304 +1,383 @@
 package com.daniel.nuba.ui.viewmodels
 
+import android.util.Log
 import android.content.Context
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.credentials.CredentialManager
-import androidx.credentials.GetCredentialRequest
-import com.daniel.nuba.R
+import com.daniel.nuba.auth.AuthRepository
 import com.daniel.nuba.auth.BiometricAuth
-import com.daniel.nuba.auth.FirebaseAuthRepository
-import com.daniel.nuba.auth.findFragmentActivity
-import com.daniel.nuba.data.AppState
+import com.daniel.nuba.auth.SupabaseAuthRepository
+import com.daniel.nuba.auth.SessionRepository
+import com.daniel.nuba.auth.SharedPreferencesSessionRepository
 import com.daniel.nuba.model.AppRoute
 import com.daniel.nuba.model.AuthUser
 import com.daniel.nuba.model.Role
 import com.facebook.CallbackManager
-import com.facebook.FacebookCallback
-import com.facebook.FacebookException
-import com.facebook.login.LoginManager
-import com.facebook.login.LoginResult
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 
-class LoginViewModel : ViewModel() {
-    private val authRepository = FirebaseAuthRepository()
+private const val TAG = "LoginViewModel"
+
+data class LoginUiState(
+    val selectedRole: Role = Role.CLIENTE,
+    val email: String = "",
+    val password: String = "",
+    val biometricEnabled: Boolean = false,
+    val biometricAvailable: Boolean = false,
+    val biometricStatus: String = "",
+    val authBusy: Boolean = false,
+    val pendingEnableAfterPassword: AuthUser? = null,
+    val showRegisterDialog: Boolean = false,
+    val registerName: String = "",
+    val registerEmail: String = "",
+    val registerPassword: String = "",
+    val registerUsername: String = ""
+)
+
+sealed class LoginUiEvent {
+    data class Navigate(val route: AppRoute) : LoginUiEvent()
+    data class ShowToast(val message: String) : LoginUiEvent()
+    data class TriggerBiometric(
+        val title: String,
+        val subtitle: String,
+        val description: String,
+        val onSuccess: () -> Unit
+    ) : LoginUiEvent()
+    data class LaunchGoogleLogin(val serverClientId: String) : LoginUiEvent()
+    object LaunchFacebookLogin : LoginUiEvent()
+}
+
+class LoginViewModel(
+    private val authRepository: AuthRepository = SupabaseAuthRepository(),
+    private val sessionRepository: SessionRepository? = null
+) : ViewModel() {
+
     val facebookCallbackManager = CallbackManager.Factory.create()
 
-    var selectedRole by mutableStateOf(Role.CLIENTE)
-    var email by mutableStateOf("")
-    var password by mutableStateOf("")
-    var biometricEnabled by mutableStateOf(false)
-    var autoPromptDone by mutableStateOf(false)
-    var pendingEnableAfterPassword by mutableStateOf<AuthUser?>(null)
-    var authBusy by mutableStateOf(false)
-    
-    // Register states
-    var showRegisterDialog by mutableStateOf(false)
-    var registerName by mutableStateOf("")
-    var registerEmail by mutableStateOf("")
-    var registerPassword by mutableStateOf("")
+    private val _uiState = MutableStateFlow(LoginUiState())
+    val uiState = _uiState.asStateFlow()
 
-    // Biometric info
-    var biometricAvailable by mutableStateOf(false)
-    var biometricStatus by mutableStateOf("")
+    private val _events = Channel<LoginUiEvent>()
+    val events = _events.receiveAsFlow()
+
+    private var sessionRepo: SessionRepository? = sessionRepository
+    private var autoPromptDone = false
 
     fun init(context: Context) {
-        val initialRole = BiometricAuth.lastRole(context)?.takeIf { BiometricAuth.isEnabled(context, it) } ?: Role.CLIENTE
-        selectedRole = initialRole
-        updateRoleState(context, initialRole)
-        biometricAvailable = BiometricAuth.canAuthenticate(context)
-        biometricStatus = BiometricAuth.statusMessage(context)
-    }
-
-    fun onRoleSelected(context: Context, role: Role) {
-        selectedRole = role
-        updateRoleState(context, role)
-    }
-
-    private fun updateRoleState(context: Context, role: Role) {
-        email = BiometricAuth.savedEmail(context, role)
-        password = BiometricAuth.defaultPassword(role)
-        biometricEnabled = BiometricAuth.isEnabled(context, role)
-    }
-
-    fun onEnterWithRole(
-        context: Context,
-        appState: AppState,
-        onEnter: (AppRoute) -> Unit,
-        role: Role,
-        fromBiometric: Boolean = false,
-        resolvedEmail: String? = null,
-        resolvedName: String? = null
-    ) {
-        val finalEmail = resolvedEmail ?: if (fromBiometric) BiometricAuth.savedEmail(context, role) else email.ifBlank { BiometricAuth.defaultEmail(role) }
-        val finalName = resolvedName ?: if (fromBiometric) BiometricAuth.savedName(context, role) else BiometricAuth.defaultName(role)
-
-        appState.role = role
-        appState.userEmail = finalEmail
-        appState.userName = finalName.ifBlank { BiometricAuth.defaultName(role) }
-        BiometricAuth.rememberLastRole(context, role)
-        appState.toast = if (fromBiometric) "Huella validada: ingreso como ${role.title}" else "Ingreso como ${role.title}"
-        onEnter(routeFor(role))
-    }
-
-    private fun routeFor(role: Role): AppRoute = when (role) {
-        Role.CLIENTE -> AppRoute.Home
-        Role.PROVEEDOR -> AppRoute.Provider
-        Role.ADMIN -> AppRoute.Admin
-    }
-
-    fun validatePasswordLogin(context: Context, appState: AppState, onEnter: (AppRoute) -> Unit) {
-        if (authBusy) return
-        authBusy = true
-        viewModelScope.launch {
-            val result = authRepository.signIn(email, password, selectedRole)
-            authBusy = false
-            result.onSuccess { user ->
-                if (!BiometricAuth.isEnabled(context, user.role) && biometricAvailable) {
-                    pendingEnableAfterPassword = user
-                } else {
-                    onEnterWithRole(context, appState, onEnter, user.role, resolvedEmail = user.email, resolvedName = user.displayName)
-                }
-            }.onFailure {
-                appState.toast = it.message ?: "Correo o contraseña incorrectos para ${selectedRole.title}"
-            }
+        if (sessionRepo == null) {
+            sessionRepo = SharedPreferencesSessionRepository(context)
         }
-    }
-
-    fun createFirebaseAccount(appState: AppState, onSuccess: () -> Unit) {
-        if (authBusy) return
-        authBusy = true
-        viewModelScope.launch {
-            val result = authRepository.register(registerEmail, registerPassword, selectedRole, registerName)
-            authBusy = false
-            result.onSuccess { user ->
-                showRegisterDialog = false
-                email = user.email
-                password = registerPassword
-                pendingEnableAfterPassword = user
-                appState.toast = "Cuenta creada en Firebase para ${user.role.title}"
-                onSuccess()
-            }.onFailure {
-                appState.toast = it.message ?: "No se pudo crear la cuenta"
-            }
-        }
-    }
-
-    fun authenticateWithFingerprint(
-        context: Context,
-        activity: FragmentActivity?,
-        appState: AppState,
-        onEnter: (AppRoute) -> Unit,
-        automatic: Boolean = false
-    ) {
-        if (!BiometricAuth.isEnabled(context, selectedRole)) {
-            if (!automatic) appState.toast = "Primero activa la huella para ${selectedRole.title}"
-            return
-        }
-        if (!biometricAvailable) {
-            appState.toast = biometricStatus
-            return
-        }
-        if (activity == null) {
-            appState.toast = "No se pudo abrir el lector biométrico"
-            return
-        }
-        BiometricAuth.authenticate(
-            activity = activity,
-            title = "Desbloquear NUBA",
-            subtitle = "${selectedRole.title}: ${BiometricAuth.savedEmail(context, selectedRole)}",
-            description = "Confirma tu identidad con la huella registrada en este teléfono.",
-            onSuccess = { onEnterWithRole(context, appState, onEnter, selectedRole, fromBiometric = true) },
-            onError = { message -> if (!automatic || message != "Cancelado") appState.toast = message }
-        )
-    }
-
-    fun promptFingerprintLink(
-        context: Context,
-        activity: FragmentActivity?,
-        appState: AppState,
-        onEnter: (AppRoute) -> Unit,
-        user: AuthUser,
-        afterSuccess: Boolean = false
-    ) {
-        if (!biometricAvailable) {
-            appState.toast = biometricStatus
-            return
-        }
-        if (activity == null) {
-            appState.toast = "No se pudo abrir el lector biométrico"
-            return
-        }
-        BiometricAuth.authenticate(
-            activity = activity,
-            title = "Vincular huella",
-            subtitle = "${user.role.title}: ${user.email}",
-            description = "NUBA usará la huella registrada en este teléfono para próximos ingresos. La huella no se guarda en Firebase ni en la app.",
-            onSuccess = {
-                BiometricAuth.saveRole(context, user.role, user.email, user.displayName)
-                biometricEnabled = user.role == selectedRole && BiometricAuth.isEnabled(context, user.role)
-                pendingEnableAfterPassword = null
-                appState.toast = "Huella activada para ${user.role.title}"
-                if (afterSuccess) {
-                    onEnterWithRole(context, appState, onEnter, user.role, resolvedEmail = user.email, resolvedName = user.displayName)
-                }
-            },
-            onError = { appState.toast = it }
-        )
-    }
-
-    fun enableFingerprintAndEnter(
-        context: Context,
-        activity: FragmentActivity?,
-        appState: AppState,
-        onEnter: (AppRoute) -> Unit,
-        afterSuccess: Boolean = false
-    ) {
-        if (!biometricAvailable) {
-            appState.toast = biometricStatus
-            return
-        }
-        if (authBusy) return
-        authBusy = true
-        viewModelScope.launch {
-            val result = authRepository.signIn(email, password, selectedRole)
-            authBusy = false
-            result
-                .onSuccess { user -> promptFingerprintLink(context, activity, appState, onEnter, user, afterSuccess = afterSuccess) }
-                .onFailure { appState.toast = it.message ?: "No se pudo validar la cuenta" }
-        }
-    }
-
-    fun checkAutoPrompt(
-        context: Context,
-        activity: FragmentActivity?,
-        appState: AppState,
-        onEnter: (AppRoute) -> Unit
-    ) {
-        if (!autoPromptDone && biometricEnabled && biometricAvailable) {
-            autoPromptDone = true
-            viewModelScope.launch {
-                delay(460)
-                authenticateWithFingerprint(context, activity, appState, onEnter, automatic = true)
-            }
-        }
-    }
-
-    fun loginWithFacebook(context: Context, appState: AppState, onEnter: (AppRoute) -> Unit) {
-        if (authBusy) return
-        val activity = context.findFragmentActivity() ?: return
-        authBusy = true
+        val repo = sessionRepo!!
+        val initialRole = repo.getLastRole() ?: Role.CLIENTE
+        val email = repo.getLastUsedEmail(initialRole)
+        val isBiometricEnabledForThisUser = repo.isBiometricEnabled(initialRole) && repo.getSavedEmail(initialRole) == email
         
-        LoginManager.getInstance().registerCallback(facebookCallbackManager, object : FacebookCallback<LoginResult> {
-            override fun onSuccess(result: LoginResult) {
-                viewModelScope.launch {
-                    val authResult = authRepository.signInWithFacebook(result.accessToken.token, selectedRole)
-                    authBusy = false
-                    authResult.onSuccess { user ->
-                        onEnterWithRole(context, appState, onEnter, user.role, resolvedEmail = user.email, resolvedName = user.displayName)
-                    }.onFailure {
-                        appState.toast = "Firebase Error: ${it.message ?: "Error al vincular Facebook"}"
-                    }
-                }
-            }
-            override fun onCancel() {
-                authBusy = false
-                appState.toast = "Login Facebook cancelado"
-            }
-            override fun onError(error: FacebookException) {
-                authBusy = false
-                appState.toast = "Facebook SDK Error: ${error.message}"
-                android.util.Log.e("NUBA_AUTH", "Facebook Login Error", error)
-            }
-        })
-
-        LoginManager.getInstance().logInWithReadPermissions(activity, listOf("email", "public_profile"))
+        _uiState.value = _uiState.value.copy(
+            selectedRole = initialRole,
+            email = email,
+            password = "",
+            biometricEnabled = isBiometricEnabledForThisUser,
+            biometricAvailable = BiometricAuth.canAuthenticate(context),
+            biometricStatus = BiometricAuth.statusMessage(context)
+        )
     }
 
-    fun loginWithGoogle(context: Context, appState: AppState, onEnter: (AppRoute) -> Unit) {
-        if (authBusy) return
-        val activity = context.findFragmentActivity() ?: return
-        authBusy = true
+    fun onRoleSelected(role: Role) {
+        val repo = sessionRepo ?: return
+        val email = repo.getLastUsedEmail(role)
+        val isBiometricEnabledForThisUser = repo.isBiometricEnabled(role) && repo.getSavedEmail(role) == email
+        
+        _uiState.value = _uiState.value.copy(
+            selectedRole = role,
+            email = email,
+            password = "",
+            biometricEnabled = isBiometricEnabledForThisUser
+        )
+    }
 
+    fun onEmailChange(email: String) {
+        val repo = sessionRepo ?: return
+        val isBiometricForThisEmail = repo.isBiometricEnabled(_uiState.value.selectedRole) && 
+                                     repo.getSavedEmail(_uiState.value.selectedRole) == email.trim()
+        
+        _uiState.value = _uiState.value.copy(
+            email = email,
+            biometricEnabled = isBiometricForThisEmail
+        )
+    }
+
+    fun onPasswordChange(password: String) {
+        _uiState.value = _uiState.value.copy(password = password)
+    }
+
+    fun onRegisterNameChange(name: String) {
+        _uiState.value = _uiState.value.copy(registerName = name)
+    }
+
+    fun onRegisterEmailChange(email: String) {
+        _uiState.value = _uiState.value.copy(registerEmail = email)
+    }
+
+    fun onRegisterPasswordChange(password: String) {
+        _uiState.value = _uiState.value.copy(registerPassword = password)
+    }
+
+    fun onRegisterUsernameChange(username: String) {
+        _uiState.value = _uiState.value.copy(registerUsername = username)
+    }
+
+    fun onShowRegisterDialog(show: Boolean) {
+        _uiState.value = _uiState.value.copy(showRegisterDialog = show)
+    }
+
+    fun registerAccount() {
+        Log.d(TAG, "registerAccount() llamado")
+        if (_uiState.value.authBusy) {
+            Log.d(TAG, "Registro ignorado: authBusy es true")
+            return
+        }
+        
+        val state = _uiState.value
+        if (state.registerEmail.isBlank() || state.registerPassword.isBlank() || 
+            state.registerName.isBlank() || state.registerUsername.isBlank()) {
+            viewModelScope.launch { _events.send(LoginUiEvent.ShowToast("Por favor completa todos los campos")) }
+            return
+        }
+
+        if (state.registerPassword.length < 8) {
+            viewModelScope.launch { _events.send(LoginUiEvent.ShowToast("La contraseña debe tener al menos 8 caracteres")) }
+            return
+        }
+
+        _uiState.value = _uiState.value.copy(authBusy = true)
+        Log.d(TAG, "Iniciando corrutina de registro para ${state.registerEmail}")
+        
         viewModelScope.launch {
             try {
-                val credentialManager = CredentialManager.create(context)
-                val googleIdOption = GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(context.getString(R.string.default_web_client_id))
-                    .build()
-
-                val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(googleIdOption)
-                    .build()
-
-                val result = credentialManager.getCredential(activity, request)
-                val credential = result.credential
-
-                if (credential is GoogleIdTokenCredential) {
-                    val authResult: Result<AuthUser> = authRepository.signInWithGoogle(credential.idToken, selectedRole)
-                    authBusy = false
-                    authResult.onSuccess { user: AuthUser ->
-                        onEnterWithRole(context, appState, onEnter, user.role, resolvedEmail = user.email, resolvedName = user.displayName)
-                    }.onFailure {
-                        appState.toast = "Firebase Error: ${it.message ?: "Error desconocido"}"
+                val result = authRepository.register(
+                    state.registerEmail, 
+                    state.registerPassword, 
+                    state.selectedRole, 
+                    state.registerName,
+                    state.registerUsername
+                )
+                _uiState.value = _uiState.value.copy(authBusy = false)
+                
+                result.onSuccess { user ->
+                    Log.d(TAG, "Registro exitoso: ${user.email}")
+                    _uiState.value = _uiState.value.copy(
+                        email = state.registerEmail,
+                        password = state.registerPassword
+                    )
+                    _events.send(LoginUiEvent.ShowToast("¡Cuenta creada con éxito! Ya puedes entrar."))
+                    // Redirigir a Login
+                    _events.send(LoginUiEvent.Navigate(AppRoute.Login))
+                }.onFailure {
+                    val errorMsg = when {
+                        it.message?.contains("already registered", true) == true -> "Este correo ya tiene una cuenta"
+                        it.message?.contains("network", true) == true -> "Sin conexión a internet"
+                        else -> it.message ?: "No se pudo crear la cuenta"
                     }
-                } else {
-                    authBusy = false
-                    appState.toast = "Credencial no válida: ${credential::class.java.simpleName}"
+                    _events.send(LoginUiEvent.ShowToast(errorMsg))
                 }
             } catch (e: Exception) {
-                authBusy = false
-                appState.toast = "Google Error (${e.javaClass.simpleName}): ${e.message}"
-                android.util.Log.e("NUBA_AUTH", "Google Sign-In Error", e)
+                Log.e(TAG, "Excepción en registro: ${e.message}", e)
+                _uiState.value = _uiState.value.copy(authBusy = false)
+                _events.send(LoginUiEvent.ShowToast("Error: ${e.message}"))
             }
         }
+    }
+
+    private fun navigateToRole(role: Role, user: AuthUser, fromBiometric: Boolean = false) {
+        val repo = sessionRepo ?: return
+        repo.saveLastRole(role)
+        repo.saveLastUsedUser(role, user.email, user.displayName)
+        
+        viewModelScope.launch {
+            val route = when (role) {
+                Role.CLIENTE -> AppRoute.Home
+                Role.PROVEEDOR -> AppRoute.Provider
+                Role.ADMIN -> AppRoute.Admin
+            }
+            _events.send(LoginUiEvent.ShowToast(
+                if (fromBiometric) "Huella validada. ¡Hola de nuevo!" 
+                else "¡Bienvenido de nuevo, ${user.displayName}!"
+            ))
+            _events.send(LoginUiEvent.Navigate(route))
+        }
+    }
+
+    fun validatePasswordLogin() {
+        if (_uiState.value.authBusy) return
+        _uiState.value = _uiState.value.copy(authBusy = true)
+        
+        viewModelScope.launch {
+            val state = _uiState.value
+            val result = authRepository.signIn(state.email, state.password, state.selectedRole)
+            _uiState.value = _uiState.value.copy(authBusy = false, password = "")
+            
+            result.onSuccess { user ->
+                val repo = sessionRepo ?: return@onSuccess
+                val isDifferentUser = repo.isBiometricEnabled(user.role) && repo.getSavedEmail(user.role) != user.email
+                
+                if ((!repo.isBiometricEnabled(user.role) || isDifferentUser) && state.biometricAvailable) {
+                    _events.send(LoginUiEvent.ShowToast("¡Bienvenido, ${user.displayName}!"))
+                    _uiState.value = _uiState.value.copy(pendingEnableAfterPassword = user)
+                } else {
+                    navigateToRole(user.role, user)
+                }
+            }.onFailure {
+                val errorMsg = when {
+                    it.message?.contains("invalid_credentials", true) == true -> "Correo o contraseña incorrectos"
+                    it.message?.contains("user_not_found", true) == true -> "El usuario no existe"
+                    it.message?.contains("network", true) == true -> "Sin conexión a internet"
+                    else -> "Error de acceso: ${it.message}"
+                }
+                _events.send(LoginUiEvent.ShowToast(errorMsg))
+            }
+        }
+    }
+
+    fun authenticateWithFingerprint(automatic: Boolean = false) {
+        val state = _uiState.value
+        val repo = sessionRepo ?: return
+        
+        if (!repo.isBiometricEnabled(state.selectedRole)) {
+            if (!automatic) viewModelScope.launch { _events.send(LoginUiEvent.ShowToast("Primero activa la huella para ${state.selectedRole.title}")) }
+            return
+        }
+        
+        val refreshToken = repo.getRefreshToken(state.selectedRole)
+        if (refreshToken == null) {
+            if (!automatic) viewModelScope.launch { _events.send(LoginUiEvent.ShowToast("Sesión expirada. Ingresa con contraseña.")) }
+            return
+        }
+
+        if (!state.biometricAvailable) {
+            viewModelScope.launch { _events.send(LoginUiEvent.ShowToast(state.biometricStatus)) }
+            return
+        }
+
+        viewModelScope.launch {
+            _events.send(LoginUiEvent.TriggerBiometric(
+                title = "Desbloquear NUBA",
+                subtitle = "${state.selectedRole.title}: ${repo.getSavedEmail(state.selectedRole)}",
+                description = "Confirma tu identidad con la huella registrada en este teléfono.",
+                onSuccess = { 
+                    viewModelScope.launch {
+                        _uiState.value = _uiState.value.copy(authBusy = true)
+                        val result = authRepository.signInWithRefreshToken(refreshToken, state.selectedRole)
+                        _uiState.value = _uiState.value.copy(authBusy = false)
+                        
+                        result.onSuccess { user ->
+                            // Actualizar token si cambió
+                            sessionRepo?.saveBiometricConfig(user.role, user.email, user.displayName, user.refreshToken)
+                            navigateToRole(user.role, user, fromBiometric = true)
+                        }.onFailure {
+                            _events.send(LoginUiEvent.ShowToast("Sesión inválida. Por favor usa tu contraseña."))
+                        }
+                    }
+                }
+            ))
+        }
+    }
+
+    fun promptFingerprintLink(user: AuthUser, afterSuccess: Boolean = false) {
+        val state = _uiState.value
+        if (!state.biometricAvailable) {
+            viewModelScope.launch { _events.send(LoginUiEvent.ShowToast(state.biometricStatus)) }
+            return
+        }
+
+        viewModelScope.launch {
+            _events.send(LoginUiEvent.TriggerBiometric(
+                title = "Vincular huella",
+                subtitle = "${user.role.title}: ${user.email}",
+                description = "NUBA usará la huella registrada en este teléfono para próximos ingresos.",
+                onSuccess = {
+                    sessionRepo?.saveBiometricConfig(user.role, user.email, user.displayName, user.refreshToken)
+                    _uiState.value = _uiState.value.copy(
+                        biometricEnabled = true,
+                        pendingEnableAfterPassword = null
+                    )
+                    viewModelScope.launch { _events.send(LoginUiEvent.ShowToast("Huella activada para ${user.role.title}")) }
+                    if (afterSuccess) {
+                        navigateToRole(user.role, user)
+                    }
+                }
+            ))
+        }
+    }
+
+    fun dismissPendingBiometric() {
+        val user = _uiState.value.pendingEnableAfterPassword ?: return
+        _uiState.value = _uiState.value.copy(pendingEnableAfterPassword = null)
+        navigateToRole(user.role, user)
+    }
+
+    fun checkAutoPrompt() {
+        val state = _uiState.value
+        if (!autoPromptDone && state.biometricEnabled && state.biometricAvailable) {
+            autoPromptDone = true
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(460)
+                authenticateWithFingerprint(automatic = true)
+            }
+        }
+    }
+
+    fun onGoogleLoginClick() {
+        viewModelScope.launch {
+            _events.send(LoginUiEvent.LaunchGoogleLogin("")) 
+        }
+    }
+    
+    fun onGoogleLoginResult(idToken: String) {
+        if (_uiState.value.authBusy) return
+        _uiState.value = _uiState.value.copy(authBusy = true)
+        
+        viewModelScope.launch {
+            val result = authRepository.signInWithGoogle(idToken, _uiState.value.selectedRole)
+            _uiState.value = _uiState.value.copy(authBusy = false)
+            result.onSuccess { user ->
+                navigateToRole(user.role, user)
+            }.onFailure {
+                _events.send(LoginUiEvent.ShowToast("Error Google: ${it.message}"))
+            }
+        }
+    }
+
+    fun onFacebookLoginClick() {
+        viewModelScope.launch {
+            _events.send(LoginUiEvent.LaunchFacebookLogin)
+        }
+    }
+
+    fun onFacebookLoginResult(token: String) {
+        if (_uiState.value.authBusy) return
+        _uiState.value = _uiState.value.copy(authBusy = true)
+        
+        viewModelScope.launch {
+            val result = authRepository.signInWithFacebook(token, _uiState.value.selectedRole)
+            _uiState.value = _uiState.value.copy(authBusy = false)
+            result.onSuccess { user ->
+                navigateToRole(user.role, user)
+            }.onFailure {
+                _events.send(LoginUiEvent.ShowToast("Error Facebook: ${it.message}"))
+            }
+        }
+    }
+    
+    fun onAuthCancel(provider: String) {
+        _uiState.value = _uiState.value.copy(authBusy = false)
+        viewModelScope.launch { _events.send(LoginUiEvent.ShowToast("Login $provider cancelado")) }
+    }
+
+    fun onAuthError(provider: String, error: String) {
+        _uiState.value = _uiState.value.copy(authBusy = false)
+        viewModelScope.launch { _events.send(LoginUiEvent.ShowToast("$provider Error: $error")) }
     }
 }
