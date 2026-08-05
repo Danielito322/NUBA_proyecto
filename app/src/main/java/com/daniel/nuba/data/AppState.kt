@@ -6,9 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.daniel.nuba.model.AdminRequest
 import com.daniel.nuba.model.Booking
-import com.daniel.nuba.model.CartItem
 import com.daniel.nuba.model.Category
-import com.daniel.nuba.model.Product
 import com.daniel.nuba.model.Review
 import com.daniel.nuba.model.Role
 import com.daniel.nuba.model.ScheduleSlot
@@ -32,8 +30,6 @@ class AppState {
     var userEmail by mutableStateOf("daniel@nuba.app")
 
     val venues = mutableStateListOf<Venue>()
-    val products = mutableStateListOf<Product>()
-    val cart = mutableStateListOf<CartItem>()
     val bookings = mutableStateListOf<Booking>()
     val reviews = mutableStateListOf<Review>()
     val requests = mutableStateListOf<AdminRequest>()
@@ -58,92 +54,97 @@ class AppState {
                     id = "arena-sur",
                     name = "Arena Sur Puno",
                     category = Category.DEPORTES,
-                    description = "Cancha de fútbol 6 con iluminación, vestidores, tienda del local y validación QR.",
-                    address = "Jr. Los Incas, Puno",
+                    description = "Cancha de fútbol 6 con iluminación profesional, vestidores limpios y validación rápida por QR. Ideal para partidos nocturnos con amigos.",
+                    address = "Jr. Los Incas 450, Puno",
                     distance = "1.2 km",
                     price = 78,
                     rating = 4.8,
-                    reviews = 124,
+                    reviewsCount = 124,
                     latitude = -15.8436,
                     longitude = -70.0201,
                     imageUrl = "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1200&q=80",
                     services = listOf("Iluminación", "Vestidores", "Estacionamiento", "Wi-Fi"),
-                    schedules = baseSchedule.map { it.copy() }.toMutableList()
+                    schedules = baseSchedule.map { it.copy() }.toMutableList(),
+                    phone = "+51 950 123 456",
+                    email = "contacto@arenasurpuno.pe",
+                    website = "www.arenasurpuno.pe"
                 ),
                 Venue(
                     id = "nexo-padel",
                     name = "Nexo Pádel",
                     category = Category.DEPORTES,
-                    description = "Canchas de pádel con superficie profesional, alquiler de raquetas y venta de bebidas.",
-                    address = "Av. La Torre, Puno",
+                    description = "Canchas de pádel con superficie profesional, alquiler de raquetas de alta gama y venta de bebidas energéticas y snacks.",
+                    address = "Av. La Torre 890, Puno",
                     distance = "2.0 km",
                     price = 92,
                     rating = 4.7,
-                    reviews = 88,
+                    reviewsCount = 88,
                     latitude = -15.8358,
                     longitude = -70.0298,
                     imageUrl = "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?auto=format&fit=crop&w=1200&q=80",
-                    services = listOf("Raquetas", "Duchas", "Tienda", "Cafetería"),
-                    schedules = baseSchedule.map { it.copy() }.toMutableList()
+                    services = listOf("Raquetas", "Duchas", "Cafetería"),
+                    schedules = baseSchedule.map { it.copy() }.toMutableList(),
+                    phone = "+51 951 789 456",
+                    email = "info@nexopadel.com",
+                    website = "www.nexopadel.com"
                 ),
                 Venue(
                     id = "barber-studio",
                     name = "Studio Barber 360",
                     category = Category.BELLEZA,
-                    description = "Barbería moderna con reserva por hora, productos premium y atención personalizada.",
-                    address = "Jr. Lima, Puno",
+                    description = "Barbería moderna con ambiente relajado, música, reserva por hora y atención personalizada por expertos barberos.",
+                    address = "Jr. Lima 120, Puno",
                     distance = "900 m",
                     price = 35,
                     rating = 4.9,
-                    reviews = 203,
+                    reviewsCount = 203,
                     latitude = -15.8389,
                     longitude = -70.0242,
                     imageUrl = "https://images.unsplash.com/photo-1621605815971-fbc98d665033?auto=format&fit=crop&w=1200&q=80",
-                    services = listOf("Corte", "Barba", "Color", "Productos"),
-                    schedules = baseSchedule.map { it.copy(open = "09:00", close = "21:00") }.toMutableList()
+                    services = listOf("Corte", "Barba", "Color"),
+                    schedules = baseSchedule.map { it.copy(open = "09:00", close = "21:00") }.toMutableList(),
+                    phone = "+51 958 456 123",
+                    email = "hola@barber360.pe",
+                    website = "www.barberstudio360.com"
                 ),
                 Venue(
                     id = "glow-beauty",
                     name = "Glow Beauty Lab",
                     category = Category.BELLEZA,
-                    description = "Salón de belleza para uñas, maquillaje y peinado con confirmación inmediata.",
-                    address = "Av. El Sol, Puno",
+                    description = "Salón de belleza especializado en el cuidado de uñas, maquillaje profesional y peinados para eventos con confirmación inmediata.",
+                    address = "Av. El Sol 315, Puno",
                     distance = "1.6 km",
                     price = 45,
                     rating = 4.6,
-                    reviews = 76,
+                    reviewsCount = 76,
                     latitude = -15.8456,
                     longitude = -70.0269,
                     imageUrl = "https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1200&q=80",
                     services = listOf("Uñas", "Maquillaje", "Peinado", "Tratamientos"),
-                    schedules = baseSchedule.map { it.copy(open = "10:00", close = "20:00") }.toMutableList()
+                    schedules = baseSchedule.map { it.copy(open = "10:00", close = "20:00") }.toMutableList(),
+                    phone = "+51 959 654 321",
+                    email = "citas@glowbeauty.pe",
+                    website = "www.glowbeautylab.pe"
                 ),
                 Venue(
                     id = "arcade-zone",
                     name = "Arcade Zone Puno",
                     category = Category.ENTRETENIMIENTO,
-                    description = "Cabinas gamer, realidad virtual y paquetes para grupos con reserva anticipada.",
-                    address = "Jr. Deustua, Puno",
+                    description = "Cabinas gamer de alto rendimiento, experiencias de realidad virtual inmersivas y paquetes especiales para grupos.",
+                    address = "Jr. Deustua 210, Puno",
                     distance = "1.4 km",
                     price = 28,
                     rating = 4.5,
-                    reviews = 69,
+                    reviewsCount = 69,
                     latitude = -15.8406,
                     longitude = -70.0213,
                     imageUrl = "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80",
                     services = listOf("VR", "PC Gamer", "Snacks", "Torneos"),
-                    schedules = baseSchedule.map { it.copy(open = "11:00", close = "23:00") }.toMutableList()
+                    schedules = baseSchedule.map { it.copy(open = "11:00", close = "23:00") }.toMutableList(),
+                    phone = "+51 957 321 987",
+                    email = "play@arcadezone.com",
+                    website = "www.arcadezonepuno.pe"
                 )
-            )
-        )
-        products.addAll(
-            listOf(
-                Product("balon-pro", "arena-sur", "Balón profesional", "Deportes", 59, 12, "https://images.unsplash.com/photo-1614632537197-38a17061c2bd?auto=format&fit=crop&w=900&q=80", "Balón cosido, ideal para fútbol rápido."),
-                Product("agua-pack", "arena-sur", "Pack de agua", "Bebidas", 12, 40, "https://images.unsplash.com/photo-1523362628745-0c100150b504?auto=format&fit=crop&w=900&q=80", "Seis botellas para el equipo."),
-                Product("raqueta", "nexo-padel", "Alquiler de raqueta", "Deportes", 18, 20, "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=900&q=80", "Raqueta profesional por reserva."),
-                Product("pomada", "barber-studio", "Pomada matte", "Belleza", 32, 18, "https://images.unsplash.com/photo-1621607512214-68297480165e?auto=format&fit=crop&w=900&q=80", "Fijación media para peinados naturales."),
-                Product("aceite-barba", "barber-studio", "Aceite para barba", "Belleza", 39, 8, "https://images.unsplash.com/photo-1581182800629-7d90925ad072?auto=format&fit=crop&w=900&q=80", "Hidratación y brillo suave."),
-                Product("combo-vr", "arcade-zone", "Combo VR + snack", "Entretenimiento", 25, 16, "https://images.unsplash.com/photo-1592478411213-6153e4ebc696?auto=format&fit=crop&w=900&q=80", "Complemento para experiencia gamer.")
             )
         )
         bookings.add(
@@ -162,7 +163,7 @@ class AppState {
         reviews.addAll(
             listOf(
                 Review("r1", "arena-sur", "María Q.", 5, "La cancha estaba limpia y el QR agilizó el ingreso."),
-                Review("r2", "barber-studio", "Luis C.", 4, "Buena atención y productos disponibles."),
+                Review("r2", "barber-studio", "Luis C.", 4, "Buena atención y servicio rápido."),
                 Review("r3", "arcade-zone", "Ana P.", 5, "Ideal para ir con amigos, la reserva fue rápida.")
             )
         )
@@ -176,18 +177,9 @@ class AppState {
     }
 
     fun selectedVenue(): Venue = venues.firstOrNull { it.id == selectedVenueId } ?: venues.first()
-    fun venueProducts(venueId: String = selectedVenueId): List<Product> = products.filter { it.venueId == venueId }
-    fun venueReviews(venueId: String = selectedVenueId): List<Review> = reviews.filter { it.venueId == venueId && it.status == "Publicada" }
+    fun venueReviews(venueId: String = selectedVenueId): List<Review> = reviews.filter { it.businessId == venueId && it.status == "Publicada" }
 
     fun filteredVenues(): List<Venue> = venues.filter { it.category == selectedCategory && it.approved && it.status == "Activo" }
-
-    fun addToCart(product: Product) {
-        val existing = cart.firstOrNull { it.product.id == product.id }
-        if (existing == null) cart.add(CartItem(product, 1)) else existing.quantity++
-        toast = "Producto agregado al carrito"
-    }
-
-    fun cartTotal(): Int = cart.fold(0) { total, item -> total + (item.product.price * item.quantity) }
 
     fun createBooking(total: Int): Booking {
         val venue = selectedVenue()
@@ -213,18 +205,6 @@ class AppState {
         reviews.add(0, Review("r-${System.currentTimeMillis()}", venueId, userName, rating, comment))
         bookings.find { it.venueId == venueId && !it.reviewed }?.reviewed = true
         toast = "Reseña publicada"
-    }
-
-    fun addProviderProduct(name: String, price: Int, stock: Int, image: String, description: String) {
-        products.add(
-            Product(
-                id = "prod-${System.currentTimeMillis()}", venueId = selectedVenueId, name = name,
-                category = selectedVenue().category.label, price = price, stock = stock,
-                imageUrl = image.ifBlank { "https://images.unsplash.com/photo-1518459031867-a89b944bffe4?auto=format&fit=crop&w=900&q=80" },
-                description = description.ifBlank { "Producto publicado por el proveedor." }
-            )
-        )
-        toast = "Producto publicado"
     }
 }
 

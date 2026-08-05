@@ -193,38 +193,8 @@ fun ConfirmationScreen(appState: AppState, onNavigate: (AppRoute) -> Unit) {
                     }
                 }
             }
-            item { PrimaryButton("Ver mis reservas", icon = Icons.Outlined.CalendarMonth) { onNavigate(AppRoute.Bookings) } }
+            item { PrimaryButton("Volver al inicio", icon = Icons.Outlined.Home) { onNavigate(AppRoute.Home) } }
         }
-    }
-}
-
-@Composable
-fun BookingsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: ReservationViewModel = viewModel()) {
-    MobileScaffold(appState, AppRoute.Bookings, onNavigate) {
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Mis reservas", "Próximos planes", "QR, historial, cancelación y reseñas.", back = { onNavigate(AppRoute.Home) }) }
-            if (appState.bookings.isEmpty()) item { EmptyState("Sin reservas", "Cuando confirmes una reserva aparecerá aquí.", Icons.Outlined.CalendarMonth) }
-            items(appState.bookings) { booking ->
-                GlassCard {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(booking.venueName, color = Color.White, fontWeight = FontWeight.Black, fontSize = 17.sp)
-                            Text("${booking.dateLabel} · ${booking.time}", color = NubaMuted, fontSize = 13.sp)
-                            Text("${booking.payment} · ${booking.status} · S/ ${booking.total}.00", color = NubaCyan, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                        QrCodeVisual(booking.code, Modifier.size(76.dp))
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { viewModel.cancelBooking(booking) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp)) { Text("Cancelar") }
-                        Button(onClick = { viewModel.openReview(booking.venueId) }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = NubaViolet)) { Text("Calificar") }
-                    }
-                }
-            }
-        }
-    }
-    if (viewModel.showReviewDialog) ReviewDialog(onDismiss = { viewModel.showReviewDialog = false }, viewModel = viewModel) {
-        viewModel.submitReview(appState)
     }
 }
 
@@ -235,7 +205,7 @@ fun ReviewsScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel:
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
             item { ScreenHeader("Reseñas", venue.name, "Lee experiencias y publica tu opinión.", back = { onNavigate(AppRoute.Detail) }) }
             item { PrimaryButton("Agregar reseña", icon = Icons.Outlined.RateReview) { viewModel.openReview(venue.id) } }
-            items(appState.venueReviews(venue.id)) { review -> ReviewMiniCard(review.comment, review.author, review.rating) }
+            items(appState.venueReviews(venue.id)) { review -> ReviewMiniCard(review.comment ?: "", review.author, review.rating) }
         }
     }
     if (viewModel.showReviewDialog) ReviewDialog(onDismiss = { viewModel.showReviewDialog = false }, viewModel = viewModel) {

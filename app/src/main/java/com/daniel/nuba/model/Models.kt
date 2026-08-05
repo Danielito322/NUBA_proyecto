@@ -10,7 +10,6 @@ import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.EventSeat
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.LocalMall
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PersonAdd
@@ -18,19 +17,27 @@ import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Reviews
 import androidx.compose.material.icons.outlined.SportsSoccer
 import androidx.compose.ui.graphics.vector.ImageVector
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
-enum class Role(val title: String, val subtitle: String, val icon: ImageVector) {
-    CLIENTE("Cliente", "Reservar, pagar, comprar y calificar", Icons.Outlined.Person),
-    PROVEEDOR("Proveedor", "Publicar locales, horarios y productos", Icons.Outlined.BusinessCenter),
-    ADMIN("Administrador", "Aprobar negocios, usuarios y reportes", Icons.Outlined.AdminPanelSettings)
+@Serializable
+enum class Role(val title: String, val subtitle: String, @Transient val icon: ImageVector = Icons.Outlined.Person) {
+    @SerialName("CLIENTE") CLIENTE("Cliente", "Reservar, pagar y calificar", Icons.Outlined.Person),
+    @SerialName("PROVEEDOR") PROVEEDOR("Proveedor", "Publicar locales y horarios", Icons.Outlined.BusinessCenter),
+    @SerialName("ADMIN") ADMIN("Administrador", "Aprobar negocios, usuarios y reportes", Icons.Outlined.AdminPanelSettings)
 }
 
-enum class Category(val label: String, val icon: ImageVector) {
-    DEPORTES("Deportes", Icons.Outlined.SportsSoccer),
-    BELLEZA("Belleza", Icons.Outlined.Brush),
-    ENTRETENIMIENTO("Entretenimiento", Icons.Outlined.EventSeat)
+@Serializable
+enum class Category(val label: String, @Transient val icon: ImageVector = Icons.Outlined.SportsSoccer) {
+    @SerialName("SPORTS") DEPORTES("Deportes", Icons.Outlined.SportsSoccer),
+    @SerialName("BEAUTY") BELLEZA("Belleza", Icons.Outlined.Brush),
+    @SerialName("ENTERTAINMENT") ENTRETENIMIENTO("Entretenimiento", Icons.Outlined.EventSeat)
 }
 
+@Serializable
 data class AuthUser(
     val email: String,
     val displayName: String,
@@ -42,6 +49,28 @@ data class AuthUser(
     val refreshToken: String? = null
 )
 
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class Business(
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val id: String? = null,
+    val owner_id: String,
+    var title: String,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) var description: String? = null,
+    var category: Category,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) var address: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) var latitude: Double? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) var longitude: Double? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) var phone: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) var email: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) var website: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) var cover_photo: String? = null,
+    var price: Double = 0.0,
+    var is_active: Boolean = true,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val created_at: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val updated_at: String? = null
+)
+
+@Serializable
 data class Venue(
     val id: String,
     var name: String,
@@ -50,8 +79,8 @@ data class Venue(
     var address: String,
     var distance: String,
     var price: Int,
-    var rating: Double,
-    var reviews: Int,
+    var rating: Double = 0.0,
+    var reviewsCount: Int = 0,
     val latitude: Double,
     val longitude: Double,
     var imageUrl: String,
@@ -59,25 +88,13 @@ data class Venue(
     var approved: Boolean = true,
     var owner: String = "Daniel Apaza",
     var services: List<String> = listOf("Reserva digital", "Confirmación QR", "Pago móvil"),
-    var schedules: MutableList<ScheduleSlot> = mutableListOf()
+    var schedules: MutableList<ScheduleSlot> = mutableListOf(),
+    var phone: String = "",
+    var email: String = "",
+    var website: String = ""
 )
 
-data class Product(
-    val id: String,
-    val venueId: String,
-    var name: String,
-    var category: String,
-    var price: Int,
-    var stock: Int,
-    var imageUrl: String,
-    var description: String
-)
-
-data class CartItem(
-    val product: Product,
-    var quantity: Int = 1
-)
-
+@Serializable
 data class Booking(
     val id: String,
     val venueId: String,
@@ -92,16 +109,22 @@ data class Booking(
     var reviewed: Boolean = false
 )
 
+@Serializable
 data class Review(
-    val id: String,
-    val venueId: String,
-    val author: String,
+    @SerialName("id") val id: String? = null,
+    @SerialName("business_id") val businessId: String,
+    @SerialName("user_id") val userId: String,
     val rating: Int,
-    val comment: String,
+    val comment: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
     var status: String = "Publicada",
-    var response: String = ""
-)
+    var response: String? = null,
+    @Transient val authorName: String? = null
+) {
+    val author: String get() = authorName ?: (if (userId.length > 8) "Usuario de NUBA" else userId)
+}
 
+@Serializable
 data class ScheduleSlot(
     val day: String,
     val open: String,
@@ -109,6 +132,7 @@ data class ScheduleSlot(
     var active: Boolean = true
 )
 
+@Serializable
 data class AdminRequest(
     val id: String,
     val title: String,
@@ -133,9 +157,6 @@ sealed class AppRoute(val title: String, val icon: ImageVector) {
     data object Payment : AppRoute("Pago", Icons.Outlined.ConfirmationNumber)
     data object Confirmation : AppRoute("QR", Icons.Outlined.QrCodeScanner)
     data object Map : AppRoute("Mapa", Icons.Outlined.Map)
-    data object Bookings : AppRoute("Reservas", Icons.Outlined.CalendarMonth)
-    data object Shop : AppRoute("Tienda", Icons.Outlined.LocalMall)
-    data object Cart : AppRoute("Carrito", Icons.Outlined.LocalMall)
     data object Reviews : AppRoute("Reseñas", Icons.Outlined.Reviews)
     data object Profile : AppRoute("Perfil", Icons.Outlined.Person)
     data object Provider : AppRoute("Negocio", Icons.Outlined.Dashboard)

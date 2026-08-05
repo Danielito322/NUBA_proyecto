@@ -113,7 +113,6 @@ fun BottomNav(selected: AppRoute, role: String, onNavigate: (AppRoute) -> Unit, 
         "PROVEEDOR" -> listOf(
             NavItem("Negocio", androidx.compose.material.icons.Icons.Outlined.BusinessCenter, AppRoute.Provider),
             NavItem("Mapa", androidx.compose.material.icons.Icons.Outlined.Map, AppRoute.Map),
-            NavItem("Reservas", androidx.compose.material.icons.Icons.Outlined.CalendarMonth, AppRoute.Bookings),
             NavItem("Perfil", androidx.compose.material.icons.Icons.Outlined.Person, AppRoute.Profile)
         )
         "ADMIN" -> listOf(
@@ -126,7 +125,6 @@ fun BottomNav(selected: AppRoute, role: String, onNavigate: (AppRoute) -> Unit, 
             NavItem("Inicio", androidx.compose.material.icons.Icons.Outlined.Home, AppRoute.Home),
             NavItem("Explorar", androidx.compose.material.icons.Icons.Outlined.Explore, AppRoute.Explore),
             NavItem("Mapa", androidx.compose.material.icons.Icons.Outlined.Map, AppRoute.Map),
-            NavItem("Reservas", androidx.compose.material.icons.Icons.Outlined.CalendarMonth, AppRoute.Bookings),
             NavItem("Perfil", androidx.compose.material.icons.Icons.Outlined.Person, AppRoute.Profile)
         )
     }

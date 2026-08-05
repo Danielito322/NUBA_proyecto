@@ -38,7 +38,7 @@ data class LoginUiState(
 )
 
 sealed class LoginUiEvent {
-    data class Navigate(val route: AppRoute) : LoginUiEvent()
+    data class Navigate(val route: AppRoute, val role: Role) : LoginUiEvent()
     data class ShowToast(val message: String) : LoginUiEvent()
     data class TriggerBiometric(
         val title: String,
@@ -174,7 +174,7 @@ class LoginViewModel(
                     )
                     _events.send(LoginUiEvent.ShowToast("¡Cuenta creada con éxito! Ya puedes entrar."))
                     // Redirigir a Login
-                    _events.send(LoginUiEvent.Navigate(AppRoute.Login))
+                    _events.send(LoginUiEvent.Navigate(AppRoute.Login, state.selectedRole))
                 }.onFailure {
                     val errorMsg = when {
                         it.message?.contains("already registered", true) == true -> "Este correo ya tiene una cuenta"
@@ -206,7 +206,7 @@ class LoginViewModel(
                 if (fromBiometric) "Huella validada. ¡Hola de nuevo!" 
                 else "¡Bienvenido de nuevo, ${user.displayName}!"
             ))
-            _events.send(LoginUiEvent.Navigate(route))
+            _events.send(LoginUiEvent.Navigate(route, role))
         }
     }
 
@@ -216,7 +216,7 @@ class LoginViewModel(
         
         viewModelScope.launch {
             val state = _uiState.value
-            val result = authRepository.signIn(state.email, state.password, state.selectedRole)
+            val result = authRepository.signIn(state.email, state.password, null)
             _uiState.value = _uiState.value.copy(authBusy = false, password = "")
             
             result.onSuccess { user ->
@@ -269,7 +269,7 @@ class LoginViewModel(
                 onSuccess = { 
                     viewModelScope.launch {
                         _uiState.value = _uiState.value.copy(authBusy = true)
-                        val result = authRepository.signInWithRefreshToken(refreshToken, state.selectedRole)
+                        val result = authRepository.signInWithRefreshToken(refreshToken, null)
                         _uiState.value = _uiState.value.copy(authBusy = false)
                         
                         result.onSuccess { user ->

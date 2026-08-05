@@ -29,7 +29,7 @@ import com.google.maps.android.compose.MarkerState
 import com.google.maps.android.compose.rememberCameraPositionState
 
 @Composable
-fun MapScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: MapViewModel = viewModel()) {
+fun MapScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: MapViewModel = viewModel(), clientViewModel: com.daniel.nuba.ui.viewmodels.ClientViewModel = viewModel()) {
     LaunchedEffect(Unit) {
         viewModel.initialize(appState.selectedCategory)
     }
@@ -40,7 +40,7 @@ fun MapScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: Map
 
     MobileScaffold(appState, AppRoute.Map, onNavigate) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.fillMaxSize()) {
-            item { ScreenHeader("Puno, Perú", "Mapa de locales", "Google Maps nativo con categorías y locales disponibles.", back = { onNavigate(AppRoute.Home) }) }
+            item { ScreenHeader("Puno, Perú", "Mapa de locales", "Google Maps nativo con categorías y locales disponibles.") }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     Category.entries.forEach { category ->
@@ -71,7 +71,7 @@ fun MapScreen(appState: AppState, onNavigate: (AppRoute) -> Unit, viewModel: Map
                 }
             }
             item { SectionTitle("Locales en el mapa", "${visibleVenues.size} lugares disponibles") }
-            items(visibleVenues) { venue -> VenueCard(venue, appState, onNavigate) }
+            items(visibleVenues) { venue -> VenueCard(venue, appState, onNavigate, clientViewModel) }
         }
     }
 }

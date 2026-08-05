@@ -69,9 +69,9 @@ fun RegistroScreen(appState: AppState, onEnter: (AppRoute) -> Unit, viewModel: L
                     if (event.route == AppRoute.Login) {
                         onEnter(AppRoute.Login)
                     } else {
-                        appState.role = uiState.selectedRole
+                        appState.role = event.role
                         appState.userEmail = uiState.email
-                        appState.userName = BiometricAuth.savedName(context, uiState.selectedRole)
+                        appState.userName = BiometricAuth.savedName(context, event.role)
                         onEnter(event.route)
                     }
                 }
