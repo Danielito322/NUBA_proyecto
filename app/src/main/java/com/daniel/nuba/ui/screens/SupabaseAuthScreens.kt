@@ -37,6 +37,7 @@ import com.daniel.nuba.model.Role
 import com.daniel.nuba.ui.components.GlassCard
 import com.daniel.nuba.ui.components.PrimaryButton
 import com.daniel.nuba.ui.components.SecondaryButton
+import com.daniel.nuba.ui.components.ToastMessage
 import com.daniel.nuba.ui.theme.NubaCyan
 import com.daniel.nuba.ui.theme.NubaMuted
 import com.daniel.nuba.ui.theme.NubaText
@@ -53,6 +54,13 @@ fun SupabaseLoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    val isEmailValid = android.util.Patterns.EMAIL_ADDRESS.matcher(uiState.registerEmail).matches()
+    val isPasswordValid = uiState.registerPassword.length >= 8
+    val isFormValid = uiState.registerName.isNotBlank() && 
+            uiState.registerUsername.isNotBlank() && 
+            isEmailValid && 
+            isPasswordValid
     val activity = context.findFragmentActivity()
 
     LaunchedEffect(Unit) {
@@ -207,6 +215,7 @@ fun SupabaseLoginScreen(
                 }
             }
         }
+        ToastMessage(appState.toast, onDismiss = { appState.toast = null })
     }
 }
 
@@ -218,6 +227,13 @@ fun SupabaseRegisterScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    val isEmailValid = android.util.Patterns.EMAIL_ADDRESS.matcher(uiState.registerEmail).matches()
+    val isPasswordValid = uiState.registerPassword.length >= 8
+    val isFormValid = uiState.registerName.isNotBlank() && 
+            uiState.registerUsername.isNotBlank() && 
+            isEmailValid && 
+            isPasswordValid
 
     LaunchedEffect(Unit) {
         viewModel.init(context)
@@ -346,12 +362,13 @@ fun SupabaseRegisterScreen(
                 PrimaryButton(
                     text = if (uiState.authBusy) "Registrando..." else "Registrarse",
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !uiState.authBusy
+                    enabled = !uiState.authBusy && isFormValid
                 ) {
                     viewModel.registerAccount()
                 }
             }
         }
+        ToastMessage(appState.toast, onDismiss = { appState.toast = null })
     }
 }
 

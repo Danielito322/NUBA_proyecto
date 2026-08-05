@@ -78,7 +78,7 @@ class LoginViewModel(
         _uiState.value = _uiState.value.copy(
             selectedRole = initialRole,
             email = email,
-            password = if (isBiometricEnabledForThisUser) BiometricAuth.defaultPassword(initialRole) else "",
+            password = "",
             biometricEnabled = isBiometricEnabledForThisUser,
             biometricAvailable = BiometricAuth.canAuthenticate(context),
             biometricStatus = BiometricAuth.statusMessage(context)
@@ -93,7 +93,7 @@ class LoginViewModel(
         _uiState.value = _uiState.value.copy(
             selectedRole = role,
             email = email,
-            password = if (isBiometricEnabledForThisUser) BiometricAuth.defaultPassword(role) else "",
+            password = "",
             biometricEnabled = isBiometricEnabledForThisUser
         )
     }
@@ -176,8 +176,12 @@ class LoginViewModel(
                     // Redirigir a Login
                     _events.send(LoginUiEvent.Navigate(AppRoute.Login))
                 }.onFailure {
-                    Log.e(TAG, "Fallo en registro: ${it.message}")
-                    _events.send(LoginUiEvent.ShowToast(it.message ?: "No se pudo crear la cuenta"))
+                    val errorMsg = when {
+                        it.message?.contains("already registered", true) == true -> "Este correo ya tiene una cuenta"
+                        it.message?.contains("network", true) == true -> "Sin conexión a internet"
+                        else -> it.message ?: "No se pudo crear la cuenta"
+                    }
+                    _events.send(LoginUiEvent.ShowToast(errorMsg))
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Excepción en registro: ${e.message}", e)
@@ -213,7 +217,7 @@ class LoginViewModel(
         viewModelScope.launch {
             val state = _uiState.value
             val result = authRepository.signIn(state.email, state.password, state.selectedRole)
-            _uiState.value = _uiState.value.copy(authBusy = false)
+            _uiState.value = _uiState.value.copy(authBusy = false, password = "")
             
             result.onSuccess { user ->
                 val repo = sessionRepo ?: return@onSuccess
@@ -226,7 +230,13 @@ class LoginViewModel(
                     navigateToRole(user.role, user)
                 }
             }.onFailure {
-                _events.send(LoginUiEvent.ShowToast(it.message ?: "Error de autenticación"))
+                val errorMsg = when {
+                    it.message?.contains("invalid_credentials", true) == true -> "Correo o contraseña incorrectos"
+                    it.message?.contains("user_not_found", true) == true -> "El usuario no existe"
+                    it.message?.contains("network", true) == true -> "Sin conexión a internet"
+                    else -> "Error de acceso: ${it.message}"
+                }
+                _events.send(LoginUiEvent.ShowToast(errorMsg))
             }
         }
     }
