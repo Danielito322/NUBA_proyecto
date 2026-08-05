@@ -1,5 +1,7 @@
 package com.daniel.nuba.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -22,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -123,6 +126,7 @@ fun DetailScreen(
     val venue = viewModel.getVenue(appState)
     val reviews by reviewViewModel.reviews.collectAsState()
     val userReview by reviewViewModel.userReview.collectAsState()
+    val context = LocalContext.current
 
     LaunchedEffect(venue.id) {
         reviewViewModel.loadReviews(venue.id, appState)
@@ -180,6 +184,37 @@ fun DetailScreen(
                     }
                 }
             }
+            item {
+                GlassCard(radius = 24) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Desde 60 min", color = NubaMuted, fontSize = 11.sp)
+                            Text("S/ ${venue.price}.00", color = Color.White, fontWeight = FontWeight.Black, fontSize = 19.sp)
+                        }
+                        Button(
+                            onClick = { 
+                                val phone = venue.phone.filter { it.isDigit() }
+                                if (phone.isNotBlank()) {
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        data = Uri.parse("https://api.whatsapp.com/send?phone=51$phone&text=Hola, vi su local ${venue.name} en NUBA y me gustaría consultar disponibilidad.")
+                                    }
+                                    context.startActivity(intent)
+                                } else {
+                                    appState.toast = "El local no cuenta con teléfono registrado"
+                                }
+                            },
+                            shape = RoundedCornerShape(18.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)), // WhatsApp Green
+                            modifier = Modifier.height(52.dp)
+                        ) { 
+                            Text("Contactar", fontWeight = FontWeight.Black, color = Color.White)
+                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.Outlined.Chat, null, tint = Color.White) 
+                        }
+                    }
+                }
+            }
+
             item { 
                 SectionTitle("Descripción")
                 GlassCard { 
@@ -277,23 +312,6 @@ fun DetailScreen(
             item {
                 PrimaryButton("Ver todas las reseñas", icon = Icons.Outlined.Reviews) {
                     onNavigate(AppRoute.Reviews)
-                }
-            }
-
-            item {
-                GlassCard(radius = 24) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Desde 60 min", color = NubaMuted, fontSize = 11.sp)
-                            Text("S/ ${venue.price}.00", color = Color.White, fontWeight = FontWeight.Black, fontSize = 19.sp)
-                        }
-                        Button(
-                            onClick = { onNavigate(AppRoute.Reserve) },
-                            shape = RoundedCornerShape(18.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = NubaViolet),
-                            modifier = Modifier.height(52.dp)
-                        ) { Text("Reservar", fontWeight = FontWeight.Black); Spacer(Modifier.width(5.dp)); Icon(Icons.AutoMirrored.Outlined.ArrowForward, null) }
-                    }
                 }
                 Spacer(Modifier.height(16.dp))
             }
